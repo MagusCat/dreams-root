@@ -1,0 +1,185 @@
+@import "tailwindcss";
+
+:root {
+  /* Cosmic dusk sky palette */
+  --sky-top: #0a071b;
+  --sky-mid: #1e1b4b;
+  --sky-bot: #312e81;
+  --sky-glow: #8b5cf6;
+}
+
+/* Background animations (stars, nebulae, clouds) */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.2; transform: scale(0.9); }
+  50%      { opacity: 0.95; transform: scale(1.15); filter: drop-shadow(0 0 3px #fff); }
+}
+
+@keyframes nebula-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(1.08); }
+}
+
+@keyframes floaty {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-10px) rotate(2deg); }
+}
+
+@keyframes drift {
+  from { transform: translateX(-5%); }
+  to   { transform: translateX(5%); }
+}
+
+@keyframes shoot {
+  0%   { opacity: 0; transform: translate(0, 0) rotate(22deg); }
+  4%   { opacity: 1; }
+  20%  { opacity: 0; transform: translate(75vw, 30vh) rotate(22deg); }
+  100% { opacity: 0; }
+}
+
+/* Screen-to-screen enter transition (fade + scale + slide) */
+@keyframes enter {
+  0%   { opacity: 0; transform: translateY(20px) scale(0.965); filter: blur(3px); }
+  60%  { opacity: 1; filter: blur(0); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+.animate-enter { animation: enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Welcome: slow rise + fade; the initial delay lets the background show first. */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(56px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.anim-rise { animation: rise-in 1.5s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both; }
+
+/* Between steps: subtle page turn from the left spine. */
+@keyframes page-turn {
+  from { opacity: 0; transform: perspective(1800px) rotateY(-22deg); }
+  to   { opacity: 1; transform: perspective(1800px) rotateY(0deg); }
+}
+.anim-page {
+  transform-origin: left center;
+  animation: page-turn 0.4s cubic-bezier(0.33, 0, 0.2, 1) both;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+/* Intro splash loading bar (fills over ~3s) */
+@keyframes loadbar {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+.dreams-loadbar { animation: loadbar 3s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+
+/* Closing screen happy cat */
+@keyframes happy-cat {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50%      { transform: translateY(-12px) rotate(3deg); }
+}
+.animate-cat { animation: happy-cat 2.4s ease-in-out infinite; }
+
+/* Staggered reveal of form fields */
+@keyframes stagger-item {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.stagger-in > * { animation: stagger-item 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.stagger-in > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger-in > *:nth-child(2) { animation-delay: 0.1s; }
+.stagger-in > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger-in > *:nth-child(4) { animation-delay: 0.2s; }
+.stagger-in > *:nth-child(5) { animation-delay: 0.25s; }
+.stagger-in > *:nth-child(6) { animation-delay: 0.3s; }
+.stagger-in > *:nth-child(7) { animation-delay: 0.35s; }
+.stagger-in > *:nth-child(n + 8) { animation-delay: 0.4s; }
+
+/* Active progress dot: subtle pulse */
+@keyframes dot-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.45); }
+  50%      { box-shadow: 0 0 0 4px rgba(139, 92, 246, 0); }
+}
+.dreams-dot-active { animation: dot-pulse 2s ease-in-out infinite; }
+
+/* Likert slider (MAAS/PPS) */
+.dreams-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #ede9fe, #c4b5fd);
+  outline: none;
+  cursor: pointer;
+}
+.dreams-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 22px;
+  width: 22px;
+  border-radius: 9999px;
+  background: #7c3aed;
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgba(49, 46, 129, 0.35);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.dreams-range::-webkit-slider-thumb:active { transform: scale(1.15); }
+.dreams-range::-moz-range-thumb {
+  height: 22px;
+  width: 22px;
+  border-radius: 9999px;
+  background: #7c3aed;
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgba(49, 46, 129, 0.35);
+}
+.dreams-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.3); }
+/* Unanswered: muted track/thumb until first interaction */
+.dreams-range--empty { background: #e2e8f0; }
+.dreams-range--empty::-webkit-slider-thumb { background: #94a3b8; }
+.dreams-range--empty::-moz-range-thumb { background: #94a3b8; }
+.animate-nebula { animation: nebula-pulse 12s ease-in-out infinite; }
+
+.star     { animation: twinkle 4s ease-in-out infinite; }
+.planet   { animation: floaty 10s ease-in-out infinite; }
+.cloud-a  { animation: drift 28s ease-in-out infinite alternate; }
+.cloud-b  { animation: drift 36s ease-in-out infinite alternate-reverse; }
+.cloud-c  { animation: drift 32s ease-in-out infinite alternate; }
+
+.shooting {
+  position: absolute;
+  top: 10%;
+  left: -15%;
+  width: 160px;
+  height: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), #a78bfa, #ffffff);
+  transform: rotate(22deg);
+  opacity: 0;
+  animation: shoot 9s cubic-bezier(0.4, 0, 0.2, 1) 1.5s infinite;
+}
+
+/* Soft custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.45);
+}
+
+/* Soften number-input stepper arrows */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  opacity: 0.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .star, .planet, .cloud-a, .cloud-b, .cloud-c, .shooting, .animate-enter, .animate-nebula, .dreams-dot-active, .stagger-in > *, .anim-rise, .anim-page, .animate-cat {
+    animation: none !important;
+  }
+}
+
