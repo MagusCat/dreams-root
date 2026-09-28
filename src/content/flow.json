@@ -1,0 +1,280 @@
+{
+  "welcome": {
+    "title": "Estudio de atención sostenida y hábitos digitales",
+    "intro": "Bienvenido/a. Tu participación nos ayuda a entender cómo los hábitos digitales se relacionan con la atención.",
+    "image": "/hero.png",
+    "context": "Este es un estudio universitario del semestre II de Ing. en Sistemas de Información (IV Año). Aplicamos técnicas de minería y análisis de datos para responder preguntas actuales sobre atención y hábitos digitales en estudiantes.",
+    "objectives": [
+      "Medir la atención sostenida y la conciencia plena.",
+      "Caracterizar los hábitos digitales y de estudio.",
+      "Analizar la relación entre ambos con técnicas de datos."
+    ],
+    "instructions": [
+      "Lee con atención cada pantalla, de principio a fin.",
+      "Responde con sinceridad, no hay respuestas correctas ni incorrectas."
+    ],
+    "cta": "Comenzar"
+  },
+
+  "consent": {
+    "title": "Consentimiento informado",
+    "version": "2026-09-25",
+    "paragraphs": [
+      { "label": "Propósito", "text": "Analizar la relación entre los hábitos digitales y la atención sostenida en estudiantes universitarios." },
+      { "label": "Anonimato", "text": "No se recolecta datos que permitan identificarte. Al final puedes, de forma opcional, dejar tu correo únicamente si deseas recibir los resultados del estudio. Las respuestas del cuestionario son anónimas y no es posible retirarlas una vez enviadas." }
+    ],
+    "checkbox": "He leído la información anterior y acepto participar voluntariamente.",
+    "cta": "Aceptar y comenzar"
+  },
+
+  "closing": {
+    "title": "Gracias por participar",
+    "text": "Tu aporte es muy valioso."
+  },
+
+  "alreadyDone": {
+    "title": "Ya participaste",
+    "text": "¡Gracias! Solo se permite una participación por persona."
+  },
+
+  "cpt": {
+    "title": "Prueba de Rendimiento Continuo (CPT-X)",
+    "intro": "Esta prueba mide la atención sostenida o vigilancia: qué tan bien mantienes la concentración mientras realizas una actividad específica. Lee bien antes de empezar.",
+    "instructions": [
+      "Verás letras apareciendo una por una en el centro de la pantalla.",
+      "Tu tarea es reaccionar solo cuando aparezca la letra «X».",
+      "Cuando veas la «X», pulsa la barra espaciadora (computadora) o toca la pantalla (móvil).",
+      "Primero harás una práctica corta para familiarizarte. Después viene la prueba real.",
+      "La prueba dura unos 4 minutos. Busca un momento sin interrupciones."
+    ],
+    "warning": "No recargues la página ni cambies de app durante la prueba. Si lo haces, tendrás que repetir la prueba.",
+    "responseHint": "Pulsa [Espacio] o toca la pantalla cuando veas la «X»",
+    "getReady": "Prepárate…",
+    "practiceLabel": "Práctica",
+    "startCta": "Comenzar la prueba",
+    "doneTitle": "¡Prueba completada!",
+    "doneText": "Gracias. Solo faltan las últimas preguntas.",
+    "doneCta": "Continuar",
+    "params": {
+      "version": "cpt-x-1.0",
+      "seed": 20260927,
+      "targetLetter": "X",
+      "targetRatio": 0.2,
+      "exposureMs": 400,
+      "isiMs": 1500,
+      "windowMs": 1100,
+      "nBlocks": 4,
+      "trialsPerBlock": 40,
+      "practiceTrials": 20,
+      "passPct": 50,
+      "maxFalseAlarmPct": 25,
+      "jitterMs": 300
+    }
+  },
+
+  "questionnaires": {
+    "intake": {
+      "title": "Cuéntanos sobre ti",
+      "intro": "Unos datos generales para empezar.",
+      "cta": "Continuar",
+      "fields": [
+        { "type": "number", "key": "age", "label": "Edad", "min": 1, "max": 120, "integer": true },
+        {
+          "type": "single", "key": "sex", "label": "Sexo",
+          "options": [
+            { "value": "Femenino", "label": "Femenino" },
+            { "value": "Masculino", "label": "Masculino" }
+          ]
+        },
+        { "type": "catalog", "key": "fk_physical_activity", "catalog": "physical_activity", "label": "¿Cuál describe mejor tu actividad física?" },
+        { "type": "catalog", "key": "fk_center", "catalog": "university_center", "label": "Universidad" },
+        { "type": "catalog", "key": "fk_major", "catalog": "major", "label": "Carrera" },
+        { "type": "catalog", "key": "fk_modality", "catalog": "study_modality", "label": "Modalidad de estudio" },
+        {
+          "type": "single", "key": "academic_year", "label": "Año académico",
+          "options": [
+            { "value": 1, "label": "1.º" },
+            { "value": 2, "label": "2.º" },
+            { "value": 3, "label": "3.º" },
+            { "value": 4, "label": "4.º" },
+            { "value": 5, "label": "5.º" }
+          ]
+        },
+        { "type": "number", "key": "general_average", "label": "Promedio general", "hint": "Puedes ingresarlo en escala 0 a 100 o 0 a 5.", "min": 0, "max": 100, "altScale": { "min": 0, "max": 5, "label": "0 a 5" } },
+        {
+          "type": "single", "key": "failed_classes_semester", "label": "Clases reprobadas el último semestre",
+          "options": [
+            { "value": 0, "label": "Ninguna" },
+            { "value": 1, "label": "1" },
+            { "value": 2, "label": "2" },
+            { "value": 3, "label": "3 o más" }
+          ]
+        }
+      ]
+    },
+
+    "maas": {
+      "title": "Cuestionario MAAS (Mindful Attention Awareness Scale)",
+      "intro": "Indica con qué frecuencia vives cada experiencia. Responde según lo que realmente te ocurre, no lo que crees que debería ser.",
+      "purpose": "La escala MAAS mide tu atención plena (mindfulness), con qué frecuencia estás presente y consciente en tu día a día.",
+      "instructions": [
+        "Son 15 afirmaciones sobre experiencias cotidianas.",
+        "Usa el deslizador para elegir la frecuencia con la que te ocurre cada una.",
+        "No hay respuestas correctas ni incorrectas."
+      ],
+      "instrument": "MAAS",
+      "cta": "Continuar",
+      "scale": {
+        "min": 1,
+        "max": 6,
+        "labels": ["Casi siempre", "Muy frecuente", "Algo frecuente", "Algo infrecuente", "Muy infrecuente", "Casi nunca"]
+      },
+      "items": [
+        "Podría sentir una emoción y no ser consciente de ella hasta más tarde.",
+        "Rompo o derramo cosas por descuido, por no poner atención o por estar pensando en otra cosa.",
+        "Me resulta difícil mantenerme centrado/a en lo que sucede en el presente.",
+        "Tiendo a caminar rápido para llegar a donde voy, sin prestar atención a lo que experimento en el camino.",
+        "Tiendo a no darme cuenta de sensaciones de tensión física o incomodidad hasta que realmente captan mi atención.",
+        "Olvido el nombre de una persona casi tan pronto como me lo dicen por primera vez.",
+        "Parece como si funcionara «en automático», sin demasiada conciencia de lo que hago.",
+        "Hago las actividades con prisa, sin estar realmente atento/a a ellas.",
+        "Me concentro tanto en la meta que deseo alcanzar que pierdo contacto con lo que estoy haciendo ahora para lograrla.",
+        "Hago trabajos o tareas de forma automática, sin darme cuenta de lo que hago.",
+        "Me encuentro escuchando a alguien a medias mientras hago otra cosa al mismo tiempo.",
+        "Voy a lugares en «piloto automático» y luego me pregunto por qué fui allí.",
+        "Me encuentro absorto/a pensando en el futuro o en el pasado.",
+        "Me descubro haciendo cosas sin prestar atención.",
+        "Como algún tentempié sin ser consciente de que estoy comiendo."
+      ]
+    },
+
+    "pps": {
+      "title": "Cuestionario PPS (Pure Procrastination Scale)",
+      "intro": "Indica en qué medida cada afirmación te describe.",
+      "purpose": "La escala PPS mide tu tendencia a la procrastinación: qué tanto sueles posponer tus decisiones y tareas.",
+      "instructions": [
+        "Son 12 afirmaciones sobre tus hábitos.",
+        "Usa el deslizador para indicar en qué medida cada una te describe.",
+        "Responde con sinceridad, no hay respuestas correctas ni incorrectas."
+      ],
+      "instrument": "PPS",
+      "cta": "Continuar",
+      "scale": {
+        "min": 1,
+        "max": 5,
+        "labels": ["No me describe en absoluto", "No es usual en mí", "A veces sí, a veces no", "Es usual en mí", "Me describe totalmente"]
+      },
+      "items": [
+        "Retraso tanto mis decisiones que cuando me decido ya es demasiado tarde.",
+        "Incluso después de haber tomado una decisión, me demoro en llevarla a cabo.",
+        "Pierdo bastante tiempo en detalles sin importancia antes de tomar la decisión final.",
+        "Cuando estoy haciendo un trabajo que debo presentar, con frecuencia pierdo tiempo haciendo otras cosas.",
+        "Tardo varios días en realizar trabajos, incluso los que sólo requieren sentarse y hacerlos.",
+        "Frecuentemente me doy cuenta que estoy haciendo tareas que me había propuesto hacer con anterioridad.",
+        "Estoy continuamente diciendo: «lo haré mañana».",
+        "Generalmente me demoro en comenzar el trabajo que tengo que hacer.",
+        "Siento que siempre me falta tiempo.",
+        "No tengo las cosas hechas a tiempo.",
+        "Soy una persona poco cumplidora con los plazos.",
+        "Retrasar las cosas hasta el último minuto me ha costado dinero."
+      ]
+    },
+
+    "digital": {
+      "title": "Tu consumo digital y hábitos",
+      "intro": "Piensa en un día típico y responde con tu mejor estimación.",
+      "cta": "Continuar",
+      "fields": [
+        { "type": "catalog", "key": "fk_main_device", "catalog": "device", "label": "¿Cuál es tu dispositivo principal que usas?" },
+        { "type": "conditional", "key": "hours_short_videos", "label": "¿Ves videos cortos (TikTok, Reels, Shorts)?", "hoursLabel": "¿Cuántas horas al día?", "max": 24 },
+        { "type": "conditional", "key": "hours_long_videos", "label": "¿Ves videos largos (YouTube, series, películas)?", "hoursLabel": "¿Cuántas horas al día?", "max": 24 },
+        { "type": "conditional", "key": "hours_audio_podcast", "label": "¿Escuchas audio o podcasts?", "hoursLabel": "¿Cuántas horas al día?", "max": 24 },
+        { "type": "conditional", "key": "hours_reading", "label": "¿Lees (texto, artículos, libros)?", "hoursLabel": "¿Cuántas horas al día?", "max": 24 },
+        { "type": "number", "key": "hours_study_daily", "label": "¿Cuántas horas al día dedicas a estudiar?", "min": 0, "max": 24, "integer": true },
+        { "type": "number", "key": "hours_sleep_avg", "label": "¿Cuántas horas de sueño duermes en promedio?", "min": 0, "max": 24, "integer": true },
+        {
+          "type": "single", "key": "constant_scroll", "label": "¿Con qué frecuencia revisas el teléfono o haces scroll?",
+          "options": [
+            { "value": 0, "label": "Nunca" },
+            { "value": 1, "label": "Rara vez" },
+            { "value": 2, "label": "A veces" },
+            { "value": 3, "label": "A menudo" },
+            { "value": 4, "label": "Siempre" }
+          ]
+        },
+        {
+          "type": "single", "key": "academic_multitask", "label": "¿Con qué frecuencia usas otras apps mientras estudias o estás en clase?",
+          "options": [
+            { "value": 0, "label": "Nunca" },
+            { "value": 1, "label": "Rara vez" },
+            { "value": 2, "label": "A veces" },
+            { "value": 3, "label": "A menudo" },
+            { "value": 4, "label": "Siempre" }
+          ]
+        },
+        { "type": "catalog", "key": "content_formats", "catalog": "content_format", "multiple": true, "label": "¿Qué formatos de contenido prefieres? (opción multiple)" }
+      ]
+    },
+
+    "ai": {
+      "title": "Inteligencia artificial",
+      "intro": "Cuéntanos si usas IA generativa.",
+      "cta": "Continuar",
+      "fields": [
+        {
+          "type": "single", "key": "uses_ai", "label": "¿Usas IA generativa (ChatGPT, Gemini, etc.)?",
+          "options": [
+            { "value": "si", "label": "Sí" },
+            { "value": "no", "label": "No" }
+          ]
+        },
+        {
+          "type": "catalog", "key": "ai_purposes", "catalog": "ai_purpose", "multiple": true,
+          "label": "¿Para qué la usas?", "optional": true,
+          "showIf": { "key": "uses_ai", "equals": "si" }
+        },
+        {
+          "type": "single", "key": "ai_relationship", "label": "¿Tú usas la IA o la IA te usa a ti?", "optional": true,
+          "showIf": { "key": "uses_ai", "equals": "si" },
+          "options": [
+            { "value": "yo", "label": "Yo uso la IA" },
+            { "value": "ia", "label": "La IA me usa a mí" },
+            { "value": "ambas", "label": "Ambas por igual" },
+            { "value": "nose", "label": "No lo sé" }
+          ]
+        },
+        {
+          "type": "catalog", "key": "ai_tools", "catalog": "ai_tool", "multiple": true,
+          "label": "¿Qué IA usas?", "optional": true,
+          "showIf": { "key": "uses_ai", "equals": "si" }
+        },
+        {
+          "type": "single", "key": "ai_liking", "label": "¿Te gusta la IA?",
+          "options": [
+            { "value": "si", "label": "Sí, me gusta" },
+            { "value": "no", "label": "No me gusta" },
+            { "value": "maso", "label": "Más o menos" },
+            { "value": "nose", "label": "No estoy seguro/a" }
+          ]
+        }
+      ]
+    }
+  },
+
+  "recall": {
+    "title": "Una última pregunta",
+    "intro": "Al inicio te mostramos un emoji. ¿Cuál era?",
+    "cta": "Continuar"
+  },
+
+  "contact": {
+    "title": "¿Quieres recibir los resultados?",
+    "intro": "Si te interesa, déjanos tu correo y te enviaremos los resultados del estudio cuando estén listos. Es totalmente opcional.",
+    "checkbox": "Sí, quiero recibir los resultados del estudio por correo.",
+    "emailLabel": "Correo electrónico",
+    "emailPlaceholder": "tucorreo@ejemplo.com",
+    "note": "Tu correo se usa únicamente para enviarte los resultados. No se comparte con terceros. Al finalizar el estudio los correos serán eliminados.",
+    "cta": "Finalizar",
+    "skipCta": "Finalizar sin dejar correo"
+  }
+}
