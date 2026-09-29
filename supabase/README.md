@@ -1,45 +1,43 @@
-# Base de datos
+# Database
 
-Guarda las respuestas del estudio de forma **anónima**: cada participante entra con
-un usuario anónimo y solo puede ver y escribir sus propios datos (RLS). Identificadores
-en inglés; documentación en español.
+Stores the study answers **anonymously**: each participant signs in as an anonymous
+user and can only read and write their own rows (RLS). Identifiers in English.
 
-Qué se guarda: datos académicos, hábitos digitales y de estudio, uso de IA, las
-escalas MAAS y PPS (ítem por ítem) y la prueba de atención (CPT). Los catálogos
-(carreras, dispositivos, formatos, herramientas de IA, etc.) se cargan desde `seed.sql`.
+What it stores: academic data, digital and study habits, AI use, the MAAS and PPS
+scales (item by item) and the attention test (CPT). Catalogs (majors, devices,
+formats, AI tools, etc.) are loaded from `seed.sql`.
 
-## Aplicar
+## Apply
 
 **Local (Docker):**
 
 ```bash
 supabase start
-supabase db reset        # recrea la base y carga el seed
+supabase db reset        # recreates the database and loads the seed
 ```
 
-**Remoto (Supabase Cloud):**
+**Remote (Supabase Cloud):**
 
 ```bash
-supabase link --project-ref <TU_PROJECT_REF>
-supabase db push                             # aplica migraciones
-psql "$DATABASE_URL" -f supabase/seed.sql    # carga catálogos (db push no lo hace)
+supabase link --project-ref <YOUR_PROJECT_REF>
+supabase db push                             # applies migrations
+psql "$DATABASE_URL" -f supabase/seed.sql    # loads catalogs (db push doesn't)
 ```
 
-> Rehacer todo en remoto desde cero: `supabase db reset --linked` (⚠️ borra los datos).
+> Rebuild everything on the remote from scratch: `supabase db reset --linked` (⚠️ wipes data).
 
-## Vistas (solo equipo)
+## Views (team only)
 
-- `v_analysis_dataset` — una fila por participante **completado** (formato ancho, para análisis).
-- `v_responses_long` — una fila por **respuesta** individual, de todos los participantes
-  (respuestas resueltas a nombres de catálogo; los ítems de escala salen con su valor 1–N).
-- `v_progress` — una fila por participante para **ver el avance** de cada encuesta
-  (secciones hechas, ítems MAAS/PPS, `sections_done`, `pct_complete`).
+- `v_analysis_dataset` — one row per **completed** participant (wide format, for analysis).
+- `v_responses_long` — one row per individual **answer**, for all participants
+  (catalog answers resolved to names; scale items appear with their 1–N value).
+- `v_progress` — one row per participant to **track progress** of each survey
+  (sections done, MAAS/PPS items, `sections_done`, `pct_complete`).
 
-## Pendientes
+## Pending
 
-- **Centros universitarios** (`seed.sql`): son placeholder; poner la lista real.
-- **Carrera → área**: algunas asignaciones son opinables; revisar `fk_area` en `seed.sql`.
-- **Puntajes MAAS/PPS**: la vista `v_analysis_dataset` expone suma/media crudas;
-  aplicar la corrección de cada manual en el análisis (ver `docs/instruments.md`).
-- **Huella de dispositivo**: es señal blanda anti-duplicados (no identidad); está en
-  el consentimiento y requiere aval de ética antes de recolectar.
+- **Major → area**: some assignments are debatable; review `fk_area` in `seed.sql`.
+- **MAAS/PPS scoring**: `v_analysis_dataset` exposes raw sum/mean; apply each manual's
+  scoring key in the analysis (see `docs/instruments.md`).
+- **Device fingerprint**: a soft anti-duplicate signal (not an identity); it is in the
+  consent form and needs ethics approval before collecting.
