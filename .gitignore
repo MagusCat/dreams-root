@@ -12,4 +12,3 @@ dist-ssr
 .claude
 supabase/.temp
 supabase/.branches
-supabase/seed.sql
