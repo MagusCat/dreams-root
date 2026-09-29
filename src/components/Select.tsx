@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 
 export type SelectOption = { value: number | string; label: string }
 
-// Clean searchable combobox (no deps). Used for catalog single-select where the
-// list can be long (universities, majors). Click-outside / Escape close it.
 export default function Select({
   options,
   value,

@@ -52,17 +52,12 @@ function renderStep(step: CurrentStep) {
 
 export default function App() {
   const { loading, step } = useSession()
-  // First real screen rises up (slow fade); every later step turns like a
-  // notebook page. entered stays false until the first non-loading render.
   const entered = useRef(false)
   useEffect(() => {
     if (!loading) entered.current = true
   }, [loading])
-  // Splash has no wrapper anim (it fades itself in); the first real screen (welcome)
-  // rises slowly; later steps turn like a page.
   const anim = loading ? '' : entered.current ? 'anim-page' : 'anim-rise'
 
-  // Sky "fills up" as the participant advances through the flow (0 → 1).
   const stepIdx = STEPS.indexOf(step as Step)
   const level = stepIdx >= 0 ? stepIdx / (STEPS.length - 1) : 1
 
@@ -86,8 +81,6 @@ export default function App() {
   )
 }
 
-// Dev-only: wipe the anonymous session + local flags and reload, so testers can
-// restart the flow from scratch without clearing site data by hand.
 function DevReset() {
   async function reset() {
     await supabase.auth.signOut()

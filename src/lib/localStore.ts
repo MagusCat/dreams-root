@@ -2,7 +2,6 @@ import { flow } from '../content'
 import type { Summary } from './summary'
 import type { CptPayload } from './cpt/types'
 
-// Soft device-level gate in localStorage (clearing storage bypasses it).
 const COMPLETED = 'dreams:completed'
 const FINGERPRINT = 'dreams:fingerprint'
 const STEP = 'dreams:step'
@@ -87,7 +86,6 @@ export function clearProgressLocal(): void {
   }
 }
 
-// Read-only snapshot of the submitted answers, shown in "ver mis respuestas".
 export function saveSummaryLocal(summary: Summary): void {
   try {
     localStorage.setItem(SUMMARY, JSON.stringify(summary))
@@ -125,8 +123,6 @@ export type LocalAnswers = {
   contact: { email?: string; wants_results?: boolean }
 }
 
-// Assemble the full payload from the per-step drafts for the final batch save.
-// Draft keys mirror the ones written by useLocalState in each screen.
 export function collectAnswersLocal(): LocalAnswers {
   const maasKey = `dreams:draft:maas:${flow.questionnaires.maas.items.length}`
   const ppsKey = `dreams:draft:pps:${flow.questionnaires.pps.items.length}`

@@ -1,5 +1,3 @@
-// Shared CPT types. The DB shape (parameters/trials) mirrors the save_cpt RPC
-// and the cpt_session/cpt_trial tables (supabase/migrations).
 
 export type CptParams = {
   version: string
@@ -13,8 +11,8 @@ export type CptParams = {
   trialsPerBlock: number
   practiceTrials: number
   passPct: number
-  maxFalseAlarmPct: number // practice fails if the participant taps on too many non-targets
-  jitterMs: number // ISI is isiMs ± up to jitterMs (uniform); 0 = fixed rhythm
+  maxFalseAlarmPct: number
+  jitterMs: number
 }
 
 // One presented letter. is_target (letter === target) and responded (rt_ms != null)
@@ -29,7 +27,6 @@ export type RecordedTrial = {
   rt_ms: number | null
 }
 
-// Live event stream for the dev-only HUD (never affects the recorded data).
 export type CptLiveEvent = {
   kind: 'onset' | 'hit' | 'commission' | 'omission'
   n_trial: number

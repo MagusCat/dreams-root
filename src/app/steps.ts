@@ -15,12 +15,8 @@ export const STEPS = [
 
 export type Step = (typeof STEPS)[number]
 
-// Steps shown/counted in the progress bar (welcome/consent/intake excluded).
 export const PROGRESS_STEPS: readonly Step[] = ['maas', 'pps', 'digital', 'ai', 'cpt', 'recall', 'contact']
 
-// Form steps the user can walk back through. welcome/consent are one-time gates,
-// so intake — the first form step — has no "back". Single source of truth for
-// back navigation.
 export const FORM_STEPS: readonly Step[] = ['intake', 'maas', 'pps', 'digital', 'ai', 'cpt', 'recall', 'contact']
 
 export function prevStep(step: Step): Step | undefined {

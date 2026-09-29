@@ -18,8 +18,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [resumeStep, setResumeStep] = useState<Step | null>(null)
   const [uid, setUid] = useState<string | null>(null)
 
-  // Resume is derived purely from local state: nothing is written to the DB
-  // until the survey is fully completed (see finalizeSubmission in lib/data).
   useEffect(() => {
     if (hasCompletedLocal()) {
       setStep('already_done')
@@ -29,8 +27,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setResumeStep(saved as Step)
       }
     }
-    // Hold the intro splash ~3s so its loading bar/cat can play (the local
-    // resolution above is instant).
     const t = setTimeout(() => setLoading(false), 3000)
     return () => clearTimeout(t)
   }, [])
@@ -40,8 +36,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (s !== 'already_done' && s !== 'my_answers') saveStepLocal(s)
   }, [])
 
-  // On consent: record it locally, compute the fingerprint, and create the
-  // participant row now with status 'in_progress'. Answers still save at the end.
   const acceptConsent = useCallback(async () => {
     acceptConsentLocal()
     const fingerprint = await computeFingerprint()

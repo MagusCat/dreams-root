@@ -17,7 +17,6 @@ export default function FormStep({
   onSubmit: (values: Record<string, unknown>) => Promise<void>
   onBack?: () => void
 }) {
-  // Draft is kept after submit so the "back" button restores prior answers.
   const [values, setValues] = useLocalState<Values>(`dreams:draft:${step}`, {})
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)

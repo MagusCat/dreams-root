@@ -33,7 +33,6 @@ export function isFieldValid(def: FieldDef, value: FieldValue | undefined): bool
   }
 }
 
-// A field with `showIf` only renders when another field holds the given value.
 export function isVisible(def: FieldDef, values: Values): boolean {
   if (!def.showIf) return true
   return values[def.showIf.key] === def.showIf.equals
@@ -227,7 +226,6 @@ function CatalogControl({ def, value, onChange }: { def: CatalogFieldDef } & Omi
   )
 }
 
-// Yes/No; on "yes" reveal an hours input. Stored as the hours number (0 = no).
 function ConditionalControl({ def, value, onChange }: { def: ConditionalFieldDef } & Omit<FieldProps, 'def'>) {
   const initial = value === undefined || value === '' ? 'none' : value === 0 ? 'no' : 'yes'
   const [mode, setMode] = useState<'none' | 'yes' | 'no'>(initial)

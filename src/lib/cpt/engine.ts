@@ -1,15 +1,10 @@
 import type { RecordedTrial, CptLiveEvent } from './types'
 
-// Vanilla trial runner: one requestAnimationFrame loop driven by performance.now(),
-// writing the stimulus letter and progress bar straight to the DOM. It runs OUTSIDE
-// React on purpose — no state updates per frame, so React never re-renders mid-block
-// and the timing stays as tight as the display allows. React only owns the layout.
-
 export type BlockRefs = {
-  host: HTMLElement // full-screen surface that receives taps
-  letterEl: HTMLElement // stimulus letter target
-  progressEl: HTMLElement // width 0–100% of the whole real test
-  tapEl?: HTMLElement // flashed on every response, so a tap is visibly acknowledged
+  host: HTMLElement
+  letterEl: HTMLElement
+  progressEl: HTMLElement
+  tapEl?: HTMLElement
 }
 
 export type BlockTiming = { exposureMs: number; windowMs: number }
@@ -17,16 +12,16 @@ export type BlockTiming = { exposureMs: number; windowMs: number }
 export function runBlock(opts: {
   refs: BlockRefs
   letters: string[]
-  onsets: number[] // cumulative planned onset per trial (jittered, from sequence.ts)
+  onsets: number[]
   timing: BlockTiming
   block: number
   isPractice: boolean
   startNTrial: number
-  progressBase: number // real trials completed before this block
-  progressTotal: number // total real trials (practice excluded)
+  progressBase: number
+  progressTotal: number
   signal?: AbortSignal
-  target?: string // only for HUD classification (hit vs commission)
-  onLive?: (ev: CptLiveEvent) => void // dev HUD stream; undefined in production
+  target?: string
+  onLive?: (ev: CptLiveEvent) => void
 }): Promise<RecordedTrial[]> {
   const { refs, letters, onsets, timing, block, isPractice, startNTrial, progressBase, progressTotal, signal } = opts
   const { target, onLive } = opts
@@ -53,7 +48,6 @@ export function runBlock(opts: {
       }
     }
 
-    // Flash the tap indicator (cosmetic; never affects recorded timing).
     const flashTap = () => {
       refs.tapEl?.animate?.([{ opacity: 0.65 }, { opacity: 0 }], { duration: 280, easing: 'ease-out' })
     }
@@ -112,8 +106,6 @@ export function runBlock(opts: {
     const frame = (now: number) => {
       if (t0 === 0) t0 = now
       const elapsed = now - t0
-      // Advance to the next trial once its jittered planned onset is reached.
-      // At most one step per frame — fine, since the min ISI is far above a frame.
       const next = idx + 1
       if (next < trials.length && elapsed >= onsets[next]) {
         if (idx >= 0) finalize(idx)
@@ -124,12 +116,10 @@ export function runBlock(opts: {
         setProgress(progressBase + next)
         onLive?.({ kind: 'onset', n_trial: trials[next].n_trial, block, letter: trials[next].letter })
       } else if (idx >= 0) {
-        // Hide the letter after its exposure; the fixation cross behind it shows.
         const since = elapsed - trials[idx].actual_onset_ms
         if (since >= exposureMs) refs.letterEl.style.visibility = 'hidden'
       }
 
-      // Done once the last trial's response window has closed.
       if (elapsed >= onsets[trials.length - 1] + windowMs) {
         if (idx >= 0) finalize(idx)
         refs.letterEl.style.visibility = 'hidden'
@@ -149,7 +139,6 @@ export function runBlock(opts: {
   })
 }
 
-// hits% on targets for a finished (practice) block.
 export function targetHitPct(trials: RecordedTrial[], target: string): number {
   const targets = trials.filter((t) => t.letter === target)
   if (targets.length === 0) return 0
@@ -157,8 +146,6 @@ export function targetHitPct(trials: RecordedTrial[], target: string): number {
   return Math.round((hits / targets.length) * 1000) / 10
 }
 
-// false-alarm% = responses to non-target letters / non-targets. Catches someone
-// tapping on everything (who would pass a hits-only gate).
 export function falseAlarmPct(trials: RecordedTrial[], target: string): number {
   const nonTargets = trials.filter((t) => t.letter !== target)
   if (nonTargets.length === 0) return 0

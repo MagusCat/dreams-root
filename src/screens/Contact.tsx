@@ -7,8 +7,6 @@ import { prevStep } from '../app/steps'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-// Optional last step: opt in to receive the study results by email. Stored in
-// the local draft (dreams:draft:contact) and written to participant at finalize.
 export default function Contact() {
   const { goTo } = useSession()
   const back = prevStep('contact')

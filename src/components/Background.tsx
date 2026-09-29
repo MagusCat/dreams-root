@@ -8,24 +8,19 @@ const STARS = Array.from({ length: 52 }, (_, i) => ({
   opacity: (i % 3 === 0) ? 0.9 : 0.6,
 }))
 
-// Extra stars that fade in as the form progresses (level 0→1): the sky fills up.
-// Static (no twinkle) so the inline opacity gate is not overridden by animation.
 const EXTRA_STARS = Array.from({ length: 70 }, (_, i) => ({
   left: (i * 73 + 29) % 100,
   top: (i * 57 + 11) % 84,
   size: (i % 3 === 0) ? 2 : 1.5,
-  appearAt: (i + 1) / 71, // spread across the whole progress
+  appearAt: (i + 1) / 71,
   opacity: (i % 3 === 0) ? 0.85 : 0.5,
 }))
 
-// level: 0 at the start of the flow → 1 at the end. Drives how "full" the sky is.
 export default function Background({ level = 0 }: { level?: number }) {
-  // Stars glow brighter as the flow advances, so the closing screen feels warmer.
   const starGlow = (base: number) =>
     `0 0 ${Math.round(6 + level * 14)}px rgba(255,255,255,${Math.min(1, base + level * 0.5).toFixed(2)})`
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden select-none">
-      {/* Nebulas: soft luminous cosmic dust; glow a bit more as the form advances. */}
       <div
         className="animate-nebula absolute -top-24 left-1/4 h-96 w-96 rounded-full bg-violet-600/20 blur-[120px] transition-opacity duration-[1500ms]"
         style={{ opacity: 0.8 + level * 0.4 }}
@@ -55,7 +50,6 @@ export default function Background({ level = 0 }: { level?: number }) {
         />
       ))}
 
-      {/* Extra stars: fade in progressively with the form's progress. */}
       {EXTRA_STARS.map((s, i) => (
         <span
           key={`x${i}`}
@@ -96,7 +90,6 @@ export default function Background({ level = 0 }: { level?: number }) {
       <div className="cloud-b absolute bottom-36 right-[-10%] h-32 w-96 rounded-full bg-purple-300/15 blur-3xl" />
       <div className="cloud-c absolute bottom-4 left-[20%] h-24 w-72 rounded-full bg-white/10 blur-3xl" />
 
-      {/* Extra clouds that roll in as the form advances. */}
       <div
         className="cloud-b absolute top-1/2 left-[-10%] h-24 w-80 rounded-full bg-violet-300/12 blur-3xl transition-opacity duration-[2000ms]"
         style={{ opacity: level > 0.3 ? 1 : 0 }}

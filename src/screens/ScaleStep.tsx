@@ -7,7 +7,6 @@ import { useSession } from '../hooks/useSession'
 import { useLocalState } from '../hooks/useLocalState'
 import { prevStep, nextStep } from '../app/steps'
 
-// Likert questionnaire (MAAS or PPS): an intro screen followed by the slider items.
 export default function ScaleStep({ which }: { which: 'maas' | 'pps' }) {
   const content = flow.questionnaires[which]
   const { goTo } = useSession()

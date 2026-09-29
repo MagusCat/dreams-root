@@ -9,12 +9,9 @@ export type SessionValue = {
   loading: boolean
   step: CurrentStep
   uid: string | null
-  // Set when a returning device has an in-progress (uncompleted) session.
   resumeStep: Step | null
   goTo: (s: CurrentStep) => void
-  // Records consent locally (no DB write; everything is saved at the end).
   acceptConsent: () => Promise<void>
-  // Discards local progress and returns to a fresh welcome.
   startNew: () => void
 }
 

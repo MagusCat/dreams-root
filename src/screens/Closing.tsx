@@ -24,8 +24,6 @@ export default function Closing() {
     try {
       const answers = collectAnswersLocal()
       await finalizeSubmission(answers)
-      // Save a local readable snapshot before clearing (best-effort; the DB
-      // save already succeeded, so a summary failure must not block completion).
       try {
         saveSummaryLocal(await buildSummary(answers))
       } catch (e) {
@@ -44,7 +42,6 @@ export default function Closing() {
 
   useEffect(() => {
     void finalize()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   if (state === 'saving') {

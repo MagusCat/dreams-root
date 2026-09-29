@@ -15,8 +15,6 @@ function mulberry32(seed: number): () => number {
 // A–Z with visually ambiguous letters dropped (I/O/Q vs 1/0) plus the target.
 const LETTERS = 'ABCDEFGHJKLMNPRSTUVWYZ'.split('')
 
-// One block: n letters with ~ratio targets, no two targets adjacent and no letter
-// repeated back-to-back (both best-effort under the count constraint).
 function makeBlock(rnd: () => number, n: number, target: string, ratio: number): string[] {
   const pool = LETTERS.filter((l) => l !== target)
   const nTargets = Math.min(n, Math.max(1, Math.round(n * ratio)))
@@ -29,7 +27,6 @@ function makeBlock(rnd: () => number, n: number, target: string, ratio: number):
     isTarget[i] = true
     placed++
   }
-  // Relax adjacency if the count could not be met (small/dense blocks).
   for (let i = 0; placed < nTargets && i < n; i++) {
     if (!isTarget[i]) {
       isTarget[i] = true

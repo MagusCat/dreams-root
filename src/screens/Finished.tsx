@@ -6,8 +6,6 @@ import { getSummaryLocal } from '../lib/localStore'
 export default function Finished({ note }: { note?: string }) {
   const { goTo } = useSession()
   const c = flow.closing
-  // Randomly celebrate with the cat image or a check icon (falls back to the
-  // check if the image fails to load, same as the welcome banner).
   const [mark, setMark] = useState<'cat' | 'check'>(() => (Math.random() < 0.5 ? 'cat' : 'check'))
   const hasSummary = getSummaryLocal() != null
 

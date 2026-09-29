@@ -4,8 +4,6 @@ import type { CatalogName, Field, FormStepContent, ScaleStepContent } from '../c
 import type { LocalAnswers } from './localStore'
 import type { CptPayload } from './cpt/types'
 
-// A readable, fully-resolved snapshot of what the participant submitted. Built
-// once at finalize (online) so "ver mis respuestas" is purely local afterwards.
 export type SummaryRow = { label: string; value: string }
 export type SummarySection = { title: string; rows: SummaryRow[] }
 export type Summary = SummarySection[]
@@ -48,7 +46,6 @@ function formSection(title: string, content: FormStepContent, values: Values, ca
   return { title, rows }
 }
 
-// CPT results, computed client-side from the recorded trials (real blocks only).
 function cptSection(cpt: CptPayload | null): SummarySection {
   const rows: SummaryRow[] = []
   if (cpt) {
@@ -80,7 +77,6 @@ function scaleSection(title: string, content: ScaleStepContent, values: number[]
 }
 
 export async function buildSummary(a: LocalAnswers): Promise<Summary> {
-  // Resolve catalog ids → names once (online). Failure just falls back to "#id".
   const names: CatalogName[] = [
     'university_center', 'major', 'study_modality', 'device', 'physical_activity', 'content_format',
     'ai_purpose', 'ai_tool',

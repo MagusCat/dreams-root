@@ -1,6 +1,5 @@
 import { z } from 'zod'
 
-// Catalogs: dynamic option lists loaded from Supabase.
 export const CATALOG_NAMES = [
   'major',
   'university_center',
@@ -23,7 +22,6 @@ const common = {
   label: z.string(),
   hint: z.string().optional(),
   optional: z.boolean().optional(),
-  // Show this field only when another field equals a value (e.g. reveal on "yes").
   showIf: z.object({ key: z.string(), equals: z.union([z.string(), z.number()]) }).optional(),
 }
 
@@ -33,8 +31,6 @@ const numberField = z.object({
   min: z.number(),
   max: z.number(),
   integer: z.boolean().optional(),
-  // Optional secondary scale: same value entered on a smaller range (e.g. 0–5)
-  // for comfort. The stored value is always normalized to [min, max].
   altScale: z.object({ min: z.number(), max: z.number(), label: z.string() }).optional(),
 })
 
@@ -58,7 +54,6 @@ const catalogField = z.object({
   multiple: z.boolean().optional(),
 })
 
-// Yes/No; if "yes", reveal an hours input. Stored as the hours number (0 = no).
 const conditionalField = z.object({
   type: z.literal('conditional'),
   ...common,
@@ -86,14 +81,13 @@ export type FormStepContent = z.infer<typeof formStep>
 const scaleStep = z.object({
   title: z.string(),
   intro: z.string().optional(),
-  // Intro screen shown before the items: what it is / what it's for / how to answer.
   purpose: z.string(),
   instructions: z.array(z.string()).min(1),
   instrument: z.enum(['MAAS', 'PPS']),
   scale: z.object({
     min: z.number(),
     max: z.number(),
-    labels: z.array(z.string()).min(2), // one label per point, min..max
+    labels: z.array(z.string()).min(2),
   }),
   items: z.array(z.string()).min(1),
   cta: z.string(),
@@ -130,7 +124,6 @@ export const flowSchema = z.object({
     doneTitle: z.string(),
     doneText: z.string(),
     doneCta: z.string(),
-    // Protocol knobs (tunable without code). total_trials is derived at run time.
     params: z.object({
       version: z.string(),
       seed: z.number().int(),

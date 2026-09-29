@@ -23,7 +23,6 @@ export async function computeFingerprint(): Promise<string | null> {
   }
 }
 
-// Source tag from the URL (?origin=…), e.g. a university.
 export function readOrigin(): string | null {
   const raw = new URLSearchParams(window.location.search).get('origin')
   return raw ? raw.trim().slice(0, 64) : null
