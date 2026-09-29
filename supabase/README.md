@@ -33,6 +33,8 @@ psql "$DATABASE_URL" -f supabase/seed.sql    # loads catalogs (db push doesn't)
   (catalog answers resolved to names; scale items appear with their 1–N value).
 - `v_progress` — one row per participant to **track progress** of each survey
   (sections done, MAAS/PPS items, `sections_done`, `pct_complete`).
+- `v_survey_stats` — one row of **totals** by status (`total`, `completed`,
+  `incomplete`, `excluded`, `pct_completed`, first/last date).
 
 ## Pending
 
