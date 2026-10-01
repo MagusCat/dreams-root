@@ -1,5 +1,11 @@
 import { flow } from '../content'
 import { supabase } from './supabase/client'
+import { fetchCatalog } from './supabase/catalogs'
+import { getEmojiChallenge } from './emoji'
+import { computeFingerprint } from './fingerprint'
+import { acceptConsentLocal, saveFingerprintLocal } from './localStore'
+import { STEPS, type Step } from '../app/steps'
+import type { Field } from '../content/schema'
 import type { CptPayload } from './cpt/types'
 
 // Visible dev helpers; VITE_DEV_TOOLS=false turns them off in a dev build.
@@ -55,17 +61,64 @@ export function markCptDoneIfMissing(): void {
   }
 }
 
+// Valid sample answer per field (first option / mid-range / first catalog row).
+async function sampleValue(f: Field): Promise<unknown> {
+  switch (f.type) {
+    case 'number': {
+      const mid = (f.min + f.max) / 2
+      return f.integer ? Math.round(mid) : mid
+    }
+    case 'conditional':
+      return 1
+    case 'single':
+      return f.options[0].value
+    case 'multi':
+      return f.options.slice(0, f.min ?? 1).map((o) => o.value)
+    case 'catalog': {
+      const [first] = await fetchCatalog(f.catalog)
+      if (!first) throw new Error(`Catalog "${f.catalog}" is empty`)
+      return f.multiple ? [first.id] : first.id
+    }
+  }
+}
+
+// Fills every questionnaire draft with valid answers, then jumps to `to`.
+async function templateAnswer(to: Step = 'cpt'): Promise<void> {
+  if (!STEPS.includes(to)) throw new Error(`Unknown step "${to}". Use one of: ${STEPS.join(', ')}`)
+  const q = flow.questionnaires
+  const drafts: Record<string, unknown> = { recall: getEmojiChallenge().shown, contact: {} }
+  for (const step of ['intake', 'digital', 'ai'] as const) {
+    const values: Record<string, unknown> = {}
+    for (const f of q[step].fields) values[f.key] = await sampleValue(f)
+    drafts[step] = values
+  }
+  for (const which of ['maas', 'pps'] as const) {
+    const { min, max } = q[which].scale
+    drafts[`${which}:${q[which].items.length}`] = q[which].items.map(
+      () => min + Math.floor(Math.random() * (max - min + 1)),
+    )
+  }
+  acceptConsentLocal()
+  saveFingerprintLocal(await computeFingerprint())
+  for (const [k, v] of Object.entries(drafts)) localStorage.setItem(`dreams:draft:${k}`, JSON.stringify(v))
+  if (STEPS.indexOf(to) > STEPS.indexOf('cpt')) markCptDoneIfMissing()
+  localStorage.setItem(STEP, to)
+  location.reload()
+}
+
 type DreamsDevConsole = {
+  templateAnswer: (to?: Step) => Promise<void>
   skipCpt: () => void
   restart: () => void
   checkConnection: () => Promise<boolean>
 }
 
 // Hidden console-only helpers (no UI), available in any build: window.dreamsDev
-// with skipCpt(), restart() and checkConnection().
+// with templateAnswer(to?), skipCpt(), restart() and checkConnection().
 export function installDevConsole(): void {
   if (typeof window === 'undefined') return
   const api: DreamsDevConsole = {
+    templateAnswer,
     skipCpt() {
       markCptDoneIfMissing()
       try {
