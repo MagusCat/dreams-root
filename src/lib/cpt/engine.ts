@@ -1,154 +1,122 @@
-import type { RecordedTrial, CptLiveEvent } from './types'
+import type { CptParams, InputKind } from './types'
+import type { InputEvent, RunCapture } from './score'
 
-export type BlockRefs = {
+export type RunResult = RunCapture & { frames: number[] }
+
+// Runs one continuous schedule outside React: letters are shown/hidden on the DOM
+// via refs, on an absolute calendar (onset i = t0 + onsets[i]) checked every rAF
+// frame, so lateness never accumulates. No network use here.
+export function runSchedule(opts: {
   host: HTMLElement
   letterEl: HTMLElement
-  progressEl: HTMLElement
   tapEl?: HTMLElement
-}
-
-export type BlockTiming = { exposureMs: number; windowMs: number }
-
-export function runBlock(opts: {
-  refs: BlockRefs
   letters: string[]
   onsets: number[]
-  timing: BlockTiming
-  block: number
-  isPractice: boolean
-  startNTrial: number
-  progressBase: number
-  progressTotal: number
+  p: CptParams
   signal?: AbortSignal
-  target?: string
-  onLive?: (ev: CptLiveEvent) => void
-}): Promise<RecordedTrial[]> {
-  const { refs, letters, onsets, timing, block, isPractice, startNTrial, progressBase, progressTotal, signal } = opts
-  const { target, onLive } = opts
-  const { exposureMs, windowMs } = timing
+  onProgress?: (done: number) => void
+  onResponse?: (trial: number, t: number) => void
+}): Promise<RunResult> {
+  const { host, letterEl, tapEl, letters, onsets, p, signal, onProgress, onResponse } = opts
+  const n = letters.length
+  const soa = p.exposureMs + p.blankMs
+  const keyOk = p.allowedInputs.includes('keyboard')
+  const tapOk = p.allowedInputs.includes('touch')
 
   return new Promise((resolve) => {
-    const trials: RecordedTrial[] = letters.map((letter, i) => ({
-      n_trial: startNTrial + i,
-      block,
-      is_practice: isPractice,
-      letter,
-      planned_onset_ms: onsets[i],
-      actual_onset_ms: NaN,
-      rt_ms: null,
-    }))
-
-    let t0 = 0
-    let idx = -1
+    const on: (number | null)[] = new Array(n).fill(null)
+    const off: (number | null)[] = new Array(n).fill(null)
+    const events: InputEvent[] = []
+    const frames: number[] = []
+    let t0 = -1
+    let last = 0
+    let next = 0
+    let shown = -1
     let raf = 0
 
-    const setProgress = (done: number) => {
-      if (!isPractice && progressTotal > 0) {
-        refs.progressEl.style.width = `${Math.min(100, (done / progressTotal) * 100)}%`
+    // event.timeStamp shares performance.now()'s clock, so RT = timeStamp − onset.
+    const record = (ts: number, input: InputKind) => {
+      if (t0 < 0) return
+      const rel = ts - t0
+      events.push({ ts: rel, input })
+      tapEl?.animate?.([{ opacity: 0.65 }, { opacity: 0 }], { duration: 280, easing: 'ease-out' })
+      for (let i = next - 1; i >= 0; i--) {
+        const o = on[i]
+        if (o != null && o < rel) return onResponse?.(i, rel - o)
       }
     }
-
-    const flashTap = () => {
-      refs.tapEl?.animate?.([{ opacity: 0.65 }, { opacity: 0 }], { duration: 280, easing: 'ease-out' })
-    }
-
-    // ts comes from the event's own high-res timestamp (same clock as t0), which
-    // removes the jitter of measuring inside the handler.
-    const respond = (ts: number) => {
-      const tr = trials[idx]
-      if (!tr || Number.isNaN(tr.actual_onset_ms) || tr.rt_ms != null) return
-      const rt = ts - t0 - tr.actual_onset_ms
-      if (rt >= 0 && rt <= windowMs) {
-        tr.rt_ms = rt // first valid response wins
-        onLive?.({
-          kind: target && tr.letter === target ? 'hit' : 'commission',
-          n_trial: tr.n_trial,
-          block,
-          letter: tr.letter,
-          rt_ms: rt,
-        })
-      }
-    }
-
-    // Emit an omission when we leave a missed target trial (its window is closed
-    // by then, since windowMs < isiMs).
-    const finalize = (i: number) => {
-      const tr = trials[i]
-      if (onLive && target && tr && tr.letter === target && tr.rt_ms == null) {
-        onLive({ kind: 'omission', n_trial: tr.n_trial, block, letter: tr.letter })
-      }
-    }
-
     const onKey = (e: KeyboardEvent) => {
-      if (e.code === 'Space' || e.key === ' ') {
-        e.preventDefault()
-        flashTap()
-        respond(e.timeStamp || performance.now())
-      }
+      if (e.code !== p.responseKey) return
+      e.preventDefault() // no page scroll, also on auto-repeat
+      if (e.repeat || !keyOk) return
+      record(e.timeStamp, 'keyboard')
     }
-    const onPointer = (e: Event) => {
+    const onPointer = (e: PointerEvent) => {
+      if ((e.target as Element | null)?.closest?.('button')) return // dev skip button
       e.preventDefault()
-      flashTap()
-      respond(e.timeStamp || performance.now())
+      if (!tapOk) return
+      record(e.timeStamp, (e.pointerType || 'touch') as InputKind)
+    }
+    const noMenu = (e: Event) => e.preventDefault()
+
+    const hide = (el: number) => {
+      if (shown < 0 || off[shown] != null) return
+      off[shown] = el
+      letterEl.style.visibility = 'hidden'
+    }
+    const endTrial = (el: number) => {
+      if (shown < 0) return
+      hide(el)
+      shown = -1
     }
 
     const cleanup = () => {
       cancelAnimationFrame(raf)
-      window.removeEventListener('keydown', onKey)
-      refs.host.removeEventListener('pointerdown', onPointer)
+      document.removeEventListener('keydown', onKey)
+      host.removeEventListener('pointerdown', onPointer)
+      host.removeEventListener('contextmenu', noMenu)
       signal?.removeEventListener('abort', onAbort)
+      letterEl.style.visibility = 'hidden'
     }
-    const onAbort = () => {
+    const done = () => {
       cleanup()
-      resolve(trials)
+      resolve({ onsets: on, offsets: off, events, frames })
     }
+    const onAbort = () => done()
 
     const frame = (now: number) => {
-      if (t0 === 0) t0 = now
-      const elapsed = now - t0
-      const next = idx + 1
-      if (next < trials.length && elapsed >= onsets[next]) {
-        if (idx >= 0) finalize(idx)
-        idx = next
-        trials[next].actual_onset_ms = elapsed
-        refs.letterEl.textContent = trials[next].letter
-        refs.letterEl.style.visibility = 'visible'
-        setProgress(progressBase + next)
-        onLive?.({ kind: 'onset', n_trial: trials[next].n_trial, block, letter: trials[next].letter })
-      } else if (idx >= 0) {
-        const since = elapsed - trials[idx].actual_onset_ms
-        if (since >= exposureMs) refs.letterEl.style.visibility = 'hidden'
-      }
+      if (t0 < 0) t0 = now
+      // ponytail: a gap ≥ 1 s is a hidden tab (rAF paused), not a frame; skipping it keeps the median honest.
+      else if (now - last < 1000) frames.push(now - last)
+      last = now
+      const el = now - t0
 
-      if (elapsed >= onsets[trials.length - 1] + windowMs) {
-        if (idx >= 0) finalize(idx)
-        refs.letterEl.style.visibility = 'hidden'
-        setProgress(progressBase + trials.length)
-        cleanup()
-        resolve(trials)
-        return
+      while (next < n && el >= onsets[next]) {
+        const i = next++
+        endTrial(el)
+        // Its whole exposure already passed (tab was hidden): skip, don't show late.
+        if (el >= onsets[i] + p.exposureMs) continue
+        on[i] = el
+        shown = i
+        letterEl.textContent = letters[i]
+        letterEl.style.visibility = 'visible'
+        onProgress?.(i + 1)
+      }
+      if (shown >= 0 && el >= (on[shown] as number) + p.exposureMs) hide(el)
+
+      if (next >= n && el >= onsets[n - 1] + soa) {
+        endTrial(el)
+        onProgress?.(n)
+        return done()
       }
       raf = requestAnimationFrame(frame)
     }
 
-    if (signal?.aborted) return resolve(trials)
+    if (signal?.aborted) return resolve({ onsets: on, offsets: off, events, frames })
     signal?.addEventListener('abort', onAbort)
-    window.addEventListener('keydown', onKey)
-    refs.host.addEventListener('pointerdown', onPointer)
+    document.addEventListener('keydown', onKey)
+    host.addEventListener('pointerdown', onPointer, { passive: false })
+    host.addEventListener('contextmenu', noMenu)
     raf = requestAnimationFrame(frame)
   })
-}
-
-export function targetHitPct(trials: RecordedTrial[], target: string): number {
-  const targets = trials.filter((t) => t.letter === target)
-  if (targets.length === 0) return 0
-  const hits = targets.filter((t) => t.rt_ms != null).length
-  return Math.round((hits / targets.length) * 1000) / 10
-}
-
-export function falseAlarmPct(trials: RecordedTrial[], target: string): number {
-  const nonTargets = trials.filter((t) => t.letter !== target)
-  if (nonTargets.length === 0) return 0
-  const fa = nonTargets.filter((t) => t.rt_ms != null).length
-  return Math.round((fa / nonTargets.length) * 1000) / 10
 }

@@ -12,25 +12,34 @@ const STEP = 'dreams:step'
 function placeholderCpt(): CptPayload {
   const p = flow.cpt.params
   return {
-    parameters: {
-      version: p.version,
-      isi_ms: p.isiMs,
-      window_ms: p.windowMs,
-      exposure_ms: p.exposureMs,
-      seed: p.seed,
-      target_letter: p.targetLetter,
-      target_ratio: p.targetRatio,
-      n_blocks: p.nBlocks,
-      total_trials: 1,
-    },
+    parameters: { ...p, seed: 0, total_trials: 1 },
     started_at: new Date(Date.now() - 1000).toISOString(),
     finished_at: new Date().toISOString(),
     focus_losses: 0,
     fullscreen_exits: 0,
+    orientation_changes: 0,
     practice_attempts: 1,
     practice_hits_pct: 0,
+    test_attempts: 1,
+    input_mode: null,
+    fullscreen_available: false,
+    other_mode_responses: 0,
+    frame_median_ms: null,
+    long_frame_pct: null,
+    flags: [],
     trials: [
-      { n_trial: 1, block: 0, is_practice: false, letter: p.targetLetter, planned_onset_ms: 0, actual_onset_ms: 0, rt_ms: null },
+      {
+        n_trial: 1,
+        block: 0,
+        is_practice: false,
+        letter: p.targetLetter,
+        planned_onset_ms: 0,
+        actual_onset_ms: 0,
+        actual_offset_ms: p.exposureMs,
+        rt_ms: null,
+        classification: 'omission',
+        responses: [],
+      },
     ],
   }
 }

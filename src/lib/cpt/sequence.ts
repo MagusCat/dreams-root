@@ -1,8 +1,7 @@
 import type { CptParams } from './types'
 
-// Deterministic letter sequence from a seed, so a run is reproducible and the
-// seed can be stored with the data. mulberry32: tiny, good enough for stimuli.
-function mulberry32(seed: number): () => number {
+// Deterministic PRNG: the per-session seed is stored, so any run can be rebuilt.
+export function mulberry32(seed: number): () => number {
   let a = seed >>> 0
   return () => {
     a = (a + 0x6d2b79f5) | 0
@@ -12,68 +11,52 @@ function mulberry32(seed: number): () => number {
   }
 }
 
-// A–Z with visually ambiguous letters dropped (I/O/Q vs 1/0) plus the target.
-const LETTERS = 'ABCDEFGHJKLMNPRSTUVWYZ'.split('')
+export function newSeed(): number {
+  return crypto.getRandomValues(new Uint32Array(1))[0]
+}
 
-function makeBlock(rnd: () => number, n: number, target: string, ratio: number): string[] {
-  const pool = LETTERS.filter((l) => l !== target)
-  const nTargets = Math.min(n, Math.max(1, Math.round(n * ratio)))
+const AZ = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
-  const isTarget = new Array<boolean>(n).fill(false)
-  let placed = 0
-  for (let guard = 0; placed < nTargets && guard < n * 50; guard++) {
-    const i = Math.floor(rnd() * n)
-    if (isTarget[i] || isTarget[i - 1] || isTarget[i + 1]) continue
-    isTarget[i] = true
-    placed++
+// One continuous schedule. onsets are planned ms from the run's start:
+// i × (exposure + blank) ± jitter. block = index of the block each trial is in.
+export type Run = { letters: string[]; blocks: number[]; onsets: number[] }
+
+function shuffle<T>(a: T[], rnd: () => number): T[] {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
   }
-  for (let i = 0; placed < nTargets && i < n; i++) {
-    if (!isTarget[i]) {
-      isTarget[i] = true
-      placed++
+  return a
+}
+
+function makeRun(rnd: () => number, nBlocks: number, p: CptParams): Run {
+  const pool = AZ.filter((l) => l !== p.targetLetter)
+  const soa = p.exposureMs + p.blankMs
+  const run: Run = { letters: [], blocks: [], onsets: [] }
+  for (let b = 0; b < nBlocks; b++) {
+    const isTarget = shuffle(
+      Array.from({ length: p.trialsPerBlock }, (_, i) => i < p.targetsPerBlock),
+      rnd,
+    )
+    for (const t of isTarget) {
+      const i = run.letters.length
+      run.letters.push(t ? p.targetLetter : pool[Math.floor(rnd() * pool.length)])
+      run.blocks.push(b)
+      run.onsets.push(i * soa + (p.jitterMs > 0 ? (rnd() * 2 - 1) * p.jitterMs : 0))
     }
   }
-
-  const letters: string[] = []
-  let prev = ''
-  for (let i = 0; i < n; i++) {
-    if (isTarget[i]) {
-      letters.push(target)
-      prev = target
-      continue
-    }
-    let l = pool[Math.floor(rnd() * pool.length)]
-    if (l === prev) l = pool[(pool.indexOf(l) + 1) % pool.length]
-    letters.push(l)
-    prev = l
-  }
-  return letters
+  return run
 }
 
-// Cumulative onset schedule with jitter: onset[i] = onset[i-1] + isiMs ± jitter.
-// A variable ISI stops the participant entraining to a fixed rhythm (which would
-// let them anticipate letters and hide attention lapses). Mean stays isiMs.
-function makeOnsets(rnd: () => number, n: number, isiMs: number, jitterMs: number): number[] {
-  const onsets = [0]
-  for (let i = 1; i < n; i++) {
-    const jit = jitterMs > 0 ? (rnd() * 2 - 1) * jitterMs : 0
-    onsets.push(onsets[i - 1] + isiMs + jit)
-  }
-  return onsets
+// Pure: same seed + params → same sequence. Practice is drawn first, then test.
+export function generateSequence(seed: number, p: CptParams): { practice: Run; test: Run } {
+  const rnd = mulberry32(seed)
+  const practice = makeRun(rnd, p.practiceBlocks, p)
+  const test = makeRun(rnd, p.nBlocks, p)
+  return { practice, test }
 }
 
-export type Block = { letters: string[]; onsets: number[] }
-
-function makeFullBlock(rnd: () => number, n: number, p: CptParams): Block {
-  return {
-    letters: makeBlock(rnd, n, p.targetLetter, p.targetRatio),
-    onsets: makeOnsets(rnd, n, p.isiMs, p.jitterMs),
-  }
-}
-
-export function buildSequence(p: CptParams): { practice: Block; blocks: Block[] } {
-  const rnd = mulberry32(p.seed)
-  const practice = makeFullBlock(rnd, p.practiceTrials, p)
-  const blocks = Array.from({ length: p.nBlocks }, () => makeFullBlock(rnd, p.trialsPerBlock, p))
-  return { practice, blocks }
+export function estimatedMinutes(p: CptParams): number {
+  const trials = (p.practiceBlocks + p.nBlocks) * p.trialsPerBlock
+  return Math.ceil((trials * (p.exposureMs + p.blankMs)) / 60000)
 }

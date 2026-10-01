@@ -1,45 +1,148 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Layout from '../components/Layout'
 import { Button } from '../components/Button'
 import { useSession } from '../hooks/useSession'
 import { flow } from '../content'
 import { nextStep, prevStep } from '../app/steps'
-import { buildSequence, type Block } from '../lib/cpt/sequence'
-import { runBlock, targetHitPct, falseAlarmPct } from '../lib/cpt/engine'
-import type { CptPayload, RecordedTrial, CptLiveEvent } from '../lib/cpt/types'
+import { estimatedMinutes, generateSequence, newSeed, type Run } from '../lib/cpt/sequence'
+import { runSchedule, type RunResult } from '../lib/cpt/engine'
+import { classifyTrial, frameStats, practiceResult, scoreRun } from '../lib/cpt/score'
+import type { CptFlag, CptParams, CptPayload, InputKind, RecordedTrial } from '../lib/cpt/types'
 import { DEV_TOOLS, markCptDoneIfMissing } from '../lib/devTools'
 
-type Phase = 'intro' | 'countdown' | 'block' | 'practice_feedback' | 'interrupted' | 'done'
+type Phase = 'intro' | 'locked' | 'countdown' | 'running' | 'practice_feedback' | 'done'
+
+const DRAFT_KEY = 'dreams:draft:cpt'
+// Survives a reload, so a mid-test reload is detected and counted as a used attempt.
+const RUN_KEY = 'dreams:cpt:run'
+
+type RunState = {
+  attempts: number
+  active: boolean
+  locked: boolean
+  startedAt: number
+  seed: number
+  practiceAttempts: number
+}
+
+function readRun(): RunState {
+  try {
+    const raw = localStorage.getItem(RUN_KEY)
+    if (raw) return JSON.parse(raw) as RunState
+  } catch {
+    /* ignore */
+  }
+  return { attempts: 0, active: false, locked: false, startedAt: 0, seed: 0, practiceAttempts: 0 }
+}
+
+function writeRun(r: RunState): void {
+  try {
+    localStorage.setItem(RUN_KEY, JSON.stringify(r))
+  } catch {
+    /* ignore */
+  }
+}
+
+function writeDraft(payload: CptPayload): void {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(payload))
+  } catch {
+    /* ignore */
+  }
+}
+
+function hasDraft(): boolean {
+  try {
+    return localStorage.getItem(DRAFT_KEY) != null
+  } catch {
+    return false
+  }
+}
+
+// Last attempt was cut by a reload: an invalid, trial-less session so the
+// participant can move on (the in-memory trials are gone).
+function reloadedPayload(run: RunState, p: CptParams): CptPayload {
+  return {
+    parameters: { ...p, seed: run.seed, total_trials: 0 },
+    started_at: new Date(run.startedAt).toISOString(),
+    finished_at: new Date().toISOString(),
+    focus_losses: 0,
+    fullscreen_exits: 0,
+    orientation_changes: 0,
+    practice_attempts: Math.max(1, run.practiceAttempts),
+    practice_hits_pct: 0,
+    test_attempts: run.attempts,
+    input_mode: null,
+    fullscreen_available: false,
+    other_mode_responses: 0,
+    frame_median_ms: null,
+    long_frame_pct: null,
+    flags: ['session_reloaded'],
+    trials: [],
+  }
+}
+
+// Idempotent (StrictMode runs initializers twice): the lock is persisted first.
+function initialState(p: CptParams) {
+  const run = readRun()
+  if (run.active && run.attempts >= p.maxTestAttempts) {
+    writeDraft(reloadedPayload(run, p))
+    writeRun({ ...run, active: false, locked: true })
+    run.locked = true
+  }
+  return {
+    locked: run.locked,
+    alreadyDone: hasDraft(),
+    interrupted: run.active,
+    attemptsLeft: p.maxTestAttempts - run.attempts,
+  }
+}
+
+type Session = {
+  seed: number
+  fsAvailable: boolean
+  fsActive: boolean
+  away: boolean
+  focusLosses: number
+  fullscreenExits: number
+  orientationChanges: number
+  practiceAttempts: number
+  practiceTrials: RecordedTrial[]
+  practiceHitsPct: number
+  practiceFailed: boolean
+  lock: InputKind | null
+  nTrial: number
+}
+
+const freshSession = (seed: number): Session => ({
+  seed,
+  fsAvailable: false,
+  fsActive: false,
+  away: false,
+  focusLosses: 0,
+  fullscreenExits: 0,
+  orientationChanges: 0,
+  practiceAttempts: 1,
+  practiceTrials: [],
+  practiceHitsPct: 0,
+  practiceFailed: false,
+  lock: null,
+  nTrial: 1,
+})
 
 export default function Cpt() {
   const { goTo } = useSession()
   const c = flow.cpt
   const p = c.params
-  const { practice, blocks } = useMemo(() => buildSequence(p), [p])
-  const progressTotal = p.nBlocks * p.trialsPerBlock
+  const X = p.targetLetter
+  const [init] = useState(() => initialState(p))
 
-  const [phase, setPhase] = useState<Phase>('intro')
-  const [mode, setMode] = useState<'practice' | 'main'>('practice')
-  // True when this device already completed the CPT once (a saved draft exists).
-  // Only then may the participant skip/continue past it or go back without redoing.
-  const [alreadyDone] = useState(() => {
-    try {
-      return localStorage.getItem('dreams:draft:cpt') != null
-    } catch {
-      return false
-    }
-  })
-  const [label, setLabel] = useState('')
-  const [timeLeft, setTimeLeft] = useState('')
+  const [phase, setPhase] = useState<Phase>(init.locked ? 'locked' : 'intro')
+  const [mode, setMode] = useState<'practice' | 'test'>('practice')
   const [count, setCount] = useState(3)
-  const [progressPct, setProgressPct] = useState(0)
-  const [feedback, setFeedback] = useState<{
-    hitPct: number
-    faPct: number
-    pass: boolean
-    reason: 'low_hits' | 'high_fa' | null
-  } | null>(null)
+  const [feedback, setFeedback] = useState<{ hitPct: number; faPct: number; pass: boolean; last: boolean } | null>(null)
+  const [devStats, setDevStats] = useState<string | null>(null)
 
   const hostRef = useRef<HTMLDivElement>(null)
   const letterRef = useRef<HTMLSpanElement>(null)
@@ -49,98 +152,87 @@ export default function Cpt() {
 
   const phaseRef = useRef(phase)
   phaseRef.current = phase
+  const modeRef = useRef(mode)
+  modeRef.current = mode
   const ctrlRef = useRef<AbortController | null>(null)
+  const s = useRef<Session>(freshSession(0))
+  const seq = useRef<{ practice: Run; test: Run } | null>(null)
+  const [runId, setRunId] = useState(0)
+  const [startToken, setStartToken] = useState(0)
 
-  // Corrective feedback DURING PRACTICE ONLY (would bias the real measure).
+  const goNext = () => {
+    const n = nextStep('cpt')
+    if (n) goTo(n)
+  }
+
+  // Practice-only feedback (the real test shows none: it would bias the measure).
   const fbTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  const flashFeedback = (text: string, tone: 'good' | 'bad' | 'warn') => {
+  const flash = (text: string) => {
     const el = feedbackRef.current
     if (!el) return
     el.textContent = text
-    el.style.color = tone === 'good' ? '#6ee7b7' : tone === 'bad' ? '#fca5a5' : '#fcd34d'
+    el.style.color = '#6ee7b7'
     el.style.opacity = '1'
     clearTimeout(fbTimer.current)
     fbTimer.current = setTimeout(() => {
       if (feedbackRef.current) feedbackRef.current.style.opacity = '0'
-    }, 700)
+    }, 600)
   }
 
-  // Dev-only live HUD: updated by DOM (no React re-render), never shown to real
-  // participants (would bias the measure).
-  const hudRef = useRef<HTMLPreElement>(null)
-  const tally = useRef({ hits: 0, commissions: 0, omissions: 0, block: 0, nTrial: 0, letter: '', rt: null as number | null })
-  const renderHud = () => {
-    const el = hudRef.current
-    if (!el) return
-    const t = tally.current
-    el.textContent =
-      `bloque ${t.block}  ensayo ${t.nTrial}\n` +
-      `letra ${t.letter || '–'}  TR ${t.rt != null ? Math.round(t.rt) + 'ms' : '–'}\n` +
-      `aciertos ${t.hits}  comisiones ${t.commissions}  omisiones ${t.omissions}`
-  }
-  const onLive = (ev: CptLiveEvent) => {
-    if (pending.current?.isPractice) {
-      if (ev.kind === 'hit') flashFeedback('¡Bien!', 'good')
-      else if (ev.kind === 'commission') flashFeedback(`Esa no era la ${p.targetLetter}`, 'bad')
-      else if (ev.kind === 'omission') flashFeedback(`Se te pasó una ${p.targetLetter}`, 'warn')
-    }
-    if (!DEV_TOOLS) return
-    const t = tally.current
-    if (ev.kind === 'onset') Object.assign(t, { block: ev.block, nTrial: ev.n_trial, letter: ev.letter, rt: null })
-    else if (ev.kind === 'hit') { t.hits++; t.rt = ev.rt_ms ?? null }
-    else if (ev.kind === 'commission') { t.commissions++; t.rt = ev.rt_ms ?? null }
-    else t.omissions++
-    renderHud()
-  }
-
-  const trials = useRef<RecordedTrial[]>([])
-  const nTrial = useRef(1)
-  const blockNo = useRef(0)
-  const mainIdx = useRef(0)
-  const attempts = useRef(0)
-  const lastPct = useRef(0)
-  const startedAt = useRef(0)
-  const counters = useRef({ focus_losses: 0, fullscreen_exits: 0 })
-  const pending = useRef<{ block: Block; isPractice: boolean; base: number } | null>(null)
-  const [runId, setRunId] = useState(0)
-  const [startToken, setStartToken] = useState(0)
-
-  // Validity guards: count tab-switches and fullscreen exits during the test.
-  // Losing focus mid-block corrupts that block's timing (rAF freezes when hidden),
-  // so we abort it and let the participant redo it instead of keeping bad data.
-  const onVisibility = useRef(() => {
-    if (!document.hidden) return
-    counters.current.focus_losses++
-    if (phaseRef.current === 'block' || phaseRef.current === 'countdown') {
-      ctrlRef.current?.abort()
-      setPhase('interrupted')
-    }
-  })
-  const onFullscreen = useRef(() => {
-    if (!document.fullscreenElement) counters.current.fullscreen_exits++
-  })
-
+  // Interruptions: hidden tab / window blur (one per episode), fullscreen exit
+  // (only if it was active) and orientation change. The test keeps its calendar.
+  const detach = useRef<(() => void) | null>(null)
   function attachGuards() {
-    document.addEventListener('visibilitychange', onVisibility.current)
-    document.addEventListener('fullscreenchange', onFullscreen.current)
+    const st = s.current
+    const lose = () => {
+      if (!st.away) {
+        st.away = true
+        st.focusLosses++
+      }
+    }
+    const regain = () => {
+      st.away = false
+    }
+    const onVis = () => (document.hidden ? lose() : regain())
+    const onFs = () => {
+      if (document.fullscreenElement) st.fsActive = true
+      else if (st.fsActive) {
+        st.fsActive = false
+        st.fullscreenExits++
+      }
+    }
+    const mq = window.matchMedia('(orientation: portrait)')
+    const onOrient = () => {
+      st.orientationChanges++
+    }
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('blur', lose)
+    window.addEventListener('focus', regain)
+    document.addEventListener('fullscreenchange', onFs)
+    mq.addEventListener('change', onOrient)
+    detach.current = () => {
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('blur', lose)
+      window.removeEventListener('focus', regain)
+      document.removeEventListener('fullscreenchange', onFs)
+      mq.removeEventListener('change', onOrient)
+    }
   }
   function detachGuards() {
-    document.removeEventListener('visibilitychange', onVisibility.current)
-    document.removeEventListener('fullscreenchange', onFullscreen.current)
+    detach.current?.()
+    detach.current = null
   }
   useEffect(() => detachGuards, [])
 
-  function queue(block: Block, isPractice: boolean, base: number, countdown = true) {
-    pending.current = { block, isPractice, base }
-    setMode(isPractice ? 'practice' : 'main')
-    if (countdown) {
-      setCount(3)
-      setPhase('countdown')
-      setStartToken((n) => n + 1)
-    } else {
-      setPhase('block')
-      setRunId((n) => n + 1)
-    }
+  function leaveFullscreen() {
+    if (document.fullscreenElement) void document.exitFullscreen?.().catch(() => {})
+  }
+
+  function queue(kind: 'practice' | 'test') {
+    setMode(kind)
+    setCount(3)
+    setPhase('countdown')
+    setStartToken((n) => n + 1)
   }
 
   useEffect(() => {
@@ -150,7 +242,7 @@ export default function Cpt() {
       setTimeout(() => setCount(1), 1600),
       setTimeout(() => {
         if (phaseRef.current !== 'countdown') return
-        setPhase('block')
+        setPhase('running')
         setRunId((n) => n + 1)
       }, 2400),
     ]
@@ -158,166 +250,161 @@ export default function Cpt() {
   }, [startToken])
 
   useEffect(() => {
-    if (runId === 0 || !pending.current) return
-    const job = pending.current
-    const refs = {
-      host: hostRef.current!,
-      letterEl: letterRef.current!,
-      progressEl: progressRef.current!,
-      tapEl: tapRef.current ?? undefined,
-    }
+    if (runId === 0 || !seq.current) return
+    const isPractice = modeRef.current === 'practice'
+    const run = isPractice ? seq.current.practice : seq.current.test
     const ctrl = new AbortController()
     ctrlRef.current = ctrl
+    const first = new Map<number, number>()
 
-    void runBlock({
-      refs,
-      letters: job.block.letters,
-      onsets: job.block.onsets,
-      timing: { exposureMs: p.exposureMs, windowMs: p.windowMs },
-      block: blockNo.current++,
-      isPractice: job.isPractice,
-      startNTrial: nTrial.current,
-      progressBase: job.base,
-      progressTotal,
+    void runSchedule({
+      host: hostRef.current!,
+      letterEl: letterRef.current!,
+      tapEl: tapRef.current ?? undefined,
+      letters: run.letters,
+      onsets: run.onsets,
+      p,
       signal: ctrl.signal,
-      target: p.targetLetter,
-      onLive,
-    }).then((tr) => {
-      if (ctrl.signal.aborted) return // interrupted block: discard, don't record
-      trials.current.push(...tr)
-      nTrial.current += tr.length
-      if (job.isPractice) {
-        const hitPct = targetHitPct(tr, p.targetLetter)
-        const faPct = falseAlarmPct(tr, p.targetLetter)
-        lastPct.current = hitPct
-        const reason = hitPct < p.passPct ? 'low_hits' : faPct > p.maxFalseAlarmPct ? 'high_fa' : null
-        setFeedback({ hitPct, faPct, pass: reason === null, reason })
-        setPhase('practice_feedback')
-      } else {
-        setProgressPct(((job.base + tr.length) / progressTotal) * 100)
-        mainIdx.current++
-        if (mainIdx.current >= p.nBlocks) finish()
-        else advanceBlock()
-      }
+      onProgress: isPractice
+        ? undefined
+        : (done) => {
+            if (progressRef.current) progressRef.current.style.width = `${(done / run.letters.length) * 100}%`
+          },
+      onResponse: isPractice
+        ? (i, t) => {
+            if (first.has(i)) return
+            first.set(i, t)
+            if (classifyTrial(run.letters[i] === X, t, p) === 'hit') flash('Correcto')
+          }
+        : undefined,
+    }).then((res) => {
+      if (ctrl.signal.aborted) return
+      if (isPractice) finishPractice(run, res)
+      else finishTest(run, res)
     })
     return () => ctrl.abort()
   }, [runId])
 
-  function estimateTimeLeft(completedBlocks: number): string {
-    const trialsLeft = (p.nBlocks - completedBlocks) * p.trialsPerBlock
-    const min = Math.max(1, Math.round((trialsLeft * p.isiMs) / 60000))
-    return `≈ ${min} min`
+  function start() {
+    const seed = newSeed()
+    writeRun({ ...readRun(), attempts: readRun().attempts + 1, active: true, startedAt: Date.now(), seed, practiceAttempts: 1 })
+    s.current = freshSession(seed)
+    seq.current = generateSequence(seed, p)
+    attachGuards()
+    // Needs this click as the user gesture. iPhone has no API: continue without it.
+    const root = document.documentElement
+    if (p.tryFullscreen && root.requestFullscreen) {
+      root.requestFullscreen().then(() => (s.current.fsAvailable = true), () => {})
+    }
+    queue('practice')
   }
 
-  function start() {
-    void document.documentElement.requestFullscreen?.().catch(() => {})
-    attachGuards()
-    startedAt.current = Date.now()
-    attempts.current = 1
-    tally.current = { hits: 0, commissions: 0, omissions: 0, block: 0, nTrial: 0, letter: '', rt: null }
-    setLabel(c.practiceLabel)
-    queue(practice, true, 0)
+  function finishPractice(run: Run, res: RunResult) {
+    const st = s.current
+    // The input used for the first practice response is locked for the test.
+    if (st.lock == null) st.lock = res.events[0]?.input ?? null
+    const { trials } = scoreRun(run, res, p, {
+      isPractice: true,
+      firstNTrial: st.nTrial,
+      blockBase: (st.practiceAttempts - 1) * p.practiceBlocks,
+      lock: null,
+    })
+    st.nTrial += trials.length
+    st.practiceTrials.push(...trials)
+    const r = practiceResult(trials, p)
+    st.practiceHitsPct = r.hitPct
+    const last = st.practiceAttempts >= p.maxPracticeAttempts
+    if (!r.pass && last) st.practiceFailed = true
+    setFeedback({ ...r, last })
+    setPhase('practice_feedback')
   }
 
   function retryPractice() {
-    attempts.current = 2
-    setLabel(c.practiceLabel)
-    queue(practice, true, 0)
+    s.current.practiceAttempts++
+    writeRun({ ...readRun(), practiceAttempts: s.current.practiceAttempts })
+    queue('practice')
   }
 
-  function startMain() {
-    mainIdx.current = 0
-    setProgressPct(0)
-    setLabel('')
-    setTimeLeft(estimateTimeLeft(0))
-    queue(blocks[0], false, 0)
-  }
+  function finishTest(run: Run, res: RunResult) {
+    const st = s.current
+    const lock = st.lock ?? res.events[0]?.input ?? null
+    const { trials, ignored } = scoreRun(run, res, p, { isPractice: false, firstNTrial: st.nTrial, blockBase: 0, lock })
+    const frames = frameStats(res.frames)
+    const flags: CptFlag[] = []
+    if (st.focusLosses + st.fullscreenExits + st.orientationChanges > p.maxInterruptions) flags.push('interruptions_exceeded')
+    if (frames && frames.median > 20) flags.push('low_frame_rate')
+    if (st.practiceFailed) flags.push('practice_failed')
+    const runState = readRun()
+    const all = [...st.practiceTrials, ...trials]
 
-  function advanceBlock() {
-    const i = mainIdx.current
-    setTimeLeft(estimateTimeLeft(i))
-    queue(blocks[i], false, i * p.trialsPerBlock, false)
-  }
-
-  function redo() {
-    const job = pending.current
-    if (job) queue(job.block, job.isPractice, job.base)
-  }
-
-  function stopTest() {
-    ctrlRef.current?.abort()
-    setPhase('interrupted')
-  }
-
-  function devSkip() {
-    markCptDoneIfMissing()
-    skip()
-  }
-
-  function skip() {
-    ctrlRef.current?.abort()
-    detachGuards()
-    if (document.fullscreenElement) void document.exitFullscreen?.().catch(() => {})
-    const next = nextStep('cpt')
-    if (next) goTo(next)
-  }
-
-  function finish() {
-    detachGuards()
-    if (document.fullscreenElement) void document.exitFullscreen?.().catch(() => {})
-    const payload: CptPayload = {
-      parameters: {
-        version: p.version,
-        isi_ms: p.isiMs,
-        window_ms: p.windowMs,
-        exposure_ms: p.exposureMs,
-        seed: p.seed,
-        target_letter: p.targetLetter,
-        target_ratio: p.targetRatio,
-        n_blocks: p.nBlocks,
-        total_trials: trials.current.length,
-      },
-      started_at: new Date(startedAt.current).toISOString(),
+    writeDraft({
+      parameters: { ...p, seed: st.seed, total_trials: all.length },
+      started_at: new Date(runState.startedAt).toISOString(),
       finished_at: new Date().toISOString(),
-      focus_losses: counters.current.focus_losses,
-      fullscreen_exits: counters.current.fullscreen_exits,
-      practice_attempts: attempts.current,
-      practice_hits_pct: lastPct.current,
-      trials: trials.current,
-    }
-    try {
-      localStorage.setItem('dreams:draft:cpt', JSON.stringify(payload))
-    } catch {
-      /* ignore */
+      focus_losses: st.focusLosses,
+      fullscreen_exits: st.fullscreenExits,
+      orientation_changes: st.orientationChanges,
+      practice_attempts: st.practiceAttempts,
+      practice_hits_pct: st.practiceHitsPct,
+      test_attempts: runState.attempts,
+      input_mode: lock,
+      fullscreen_available: st.fsAvailable,
+      other_mode_responses: ignored,
+      frame_median_ms: frames ? Math.round(frames.median * 100) / 100 : null,
+      long_frame_pct: frames?.longPct ?? null,
+      flags,
+      trials: all,
+    })
+    writeRun({ ...runState, active: false })
+    detachGuards()
+    leaveFullscreen()
+
+    if (DEV_TOOLS) {
+      const lags = trials
+        .filter((t) => t.actual_onset_ms != null)
+        .map((t) => (t.actual_onset_ms as number) - t.planned_onset_ms)
+        .sort((a, b) => a - b)
+      const med = lags.length ? lags[lags.length >> 1] : 0
+      setDevStats(
+        `frame median ${frames?.median.toFixed(2) ?? '–'} ms · long frames ${frames?.longPct ?? '–'}%\n` +
+          `onset lag median ${med.toFixed(2)} ms · max ${(lags[lags.length - 1] ?? 0).toFixed(2)} ms\n` +
+          `input ${lock ?? '–'} · other-mode ${ignored} · flags ${flags.join(', ') || '–'}`,
+      )
     }
     setPhase('done')
   }
 
+  function devSkip() {
+    ctrlRef.current?.abort()
+    markCptDoneIfMissing()
+    writeRun({ ...readRun(), active: false })
+    detachGuards()
+    leaveFullscreen()
+    goNext()
+  }
+
+  if (phase === 'locked') {
+    return (
+      <Layout step="cpt" footer={<Button onClick={goNext}>Continuar</Button>}>
+        <div className="animate-enter space-y-3">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">La prueba ya no está disponible</h1>
+          <p className="text-sm leading-relaxed text-slate-600">
+            La prueba se interrumpió demasiadas veces y no se puede repetir. Continúa con el resto del cuestionario.
+          </p>
+        </div>
+      </Layout>
+    )
+  }
+
   if (phase === 'intro') {
     const back = prevStep('cpt')
-    const goNext = () => {
-      const n = nextStep('cpt')
-      if (n) goTo(n)
-    }
+    const minutes = estimatedMinutes(p)
     return (
       <Layout
         step="cpt"
         onBack={back ? () => goTo(back) : undefined}
         footer={
-          alreadyDone ? (
-            <div className="space-y-2">
-              <Button onClick={goNext}>Continuar</Button>
-              <button
-                type="button"
-                onClick={start}
-                className="w-full rounded-xl px-3 py-2 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
-              >
-                Repetir la prueba
-              </button>
-            </div>
-          ) : (
-            <Button onClick={start}>{c.startCta}</Button>
-          )
+          init.alreadyDone ? <Button onClick={goNext}>Continuar</Button> : <Button onClick={start}>{c.startCta}</Button>
         }
       >
         <div className="animate-enter space-y-5">
@@ -329,14 +416,29 @@ export default function Cpt() {
             {c.instructions.map((line, i) => (
               <li key={i} className="flex gap-3 text-sm leading-relaxed text-slate-700">
                 <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-violet-400" />
-                <span>{line}</span>
+                <span>{line.replace('{minutos}', String(minutes))}</span>
               </li>
             ))}
           </ul>
-          <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium leading-relaxed text-amber-800">
-            {c.warning}
+          <p className="hidden rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm font-medium text-violet-800 pointer-coarse:landscape:block">
+            Gira tu teléfono en posición vertical para hacer la prueba.
           </p>
-          {DEV_TOOLS && (
+          {init.interrupted && !init.alreadyDone && (
+            <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium leading-relaxed text-red-700">
+              La prueba anterior se interrumpió.{' '}
+              {init.attemptsLeft === 1 ? 'Te queda 1 intento.' : `Te quedan ${init.attemptsLeft} intentos.`}
+            </p>
+          )}
+          {init.alreadyDone ? (
+            <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium leading-relaxed text-emerald-800">
+              Prueba completada
+            </p>
+          ) : (
+            <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium leading-relaxed text-amber-800">
+              {c.warning}
+            </p>
+          )}
+          {DEV_TOOLS && !init.alreadyDone && (
             <button
               type="button"
               onClick={devSkip}
@@ -351,12 +453,16 @@ export default function Cpt() {
   }
 
   if (phase === 'done') {
-    const next = nextStep('cpt')
     return (
-      <Layout step="cpt" footer={<Button onClick={() => next && goTo(next)}>{c.doneCta}</Button>}>
+      <Layout step="cpt" footer={<Button onClick={goNext}>{c.doneCta}</Button>}>
         <div className="animate-enter flex h-full flex-col items-center justify-center space-y-3 text-center">
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{c.doneTitle}</h1>
           <p className="max-w-sm text-sm leading-relaxed text-slate-600">{c.doneText}</p>
+          {devStats && (
+            <pre className="whitespace-pre-wrap rounded-lg bg-slate-900 px-3 py-2 text-left font-mono text-[11px] text-emerald-300">
+              {devStats}
+            </pre>
+          )}
         </div>
       </Layout>
     )
@@ -368,26 +474,12 @@ export default function Cpt() {
     <div
       ref={hostRef}
       className="fixed inset-0 z-40 flex touch-none flex-col bg-[#0b1020] text-white select-none"
+      style={{ WebkitUserSelect: 'none', WebkitTouchCallout: 'none' }}
     >
       <div className="px-5 pt-5 sm:px-8">
         <div className="flex items-center justify-between gap-3 text-xs font-medium text-white/55">
-          <span>{label}</span>
-          <div className="flex items-center gap-3">
-            <span>{mode === 'main' ? timeLeft : `Responde solo a la «${p.targetLetter}»`}</span>
-            {(phase === 'block' || phase === 'countdown') && (
-              <button
-                type="button"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  stopTest()
-                }}
-                className="rounded-lg border border-white/20 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-white/70 transition-colors hover:bg-white/15 hover:text-white"
-              >
-                Detener
-              </button>
-            )}
-          </div>
+          <span>{mode === 'practice' ? c.practiceLabel : ''}</span>
+          <span>{mode === 'practice' ? `Responde solo a la «${X}»` : ''}</span>
         </div>
         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
           <div
@@ -395,7 +487,7 @@ export default function Cpt() {
             className={`h-full rounded-full bg-violet-400 transition-[width] duration-200 ease-out ${
               mode === 'practice' ? 'animate-pulse' : ''
             }`}
-            style={{ width: mode === 'main' ? `${progressPct}%` : '20%' }}
+            style={{ width: mode === 'test' ? '0%' : '20%' }}
           />
         </div>
       </div>
@@ -410,14 +502,14 @@ export default function Cpt() {
         </div>
       )}
 
-      {phase === 'block' && (
+      {phase === 'running' && (
         <>
           <div className="relative flex flex-1 items-center justify-center">
-            <span className="absolute text-5xl font-light text-white/25 select-none">+</span>
+            <span className="absolute text-5xl font-light text-white/25">+</span>
             <span
               ref={letterRef}
-              className="relative text-[26vh] font-bold leading-none sm:text-[30vh]"
-              style={{ visibility: 'hidden' }}
+              className="relative font-sans font-bold leading-none text-white"
+              style={{ visibility: 'hidden', fontSize: `${p.letterSizeVmin}vmin` }}
             />
             <div
               ref={feedbackRef}
@@ -435,19 +527,13 @@ export default function Cpt() {
       )}
 
       {DEV_TOOLS && (
-        <>
-          <pre
-            ref={hudRef}
-            className="pointer-events-none absolute bottom-4 left-4 z-50 rounded-lg bg-black/55 px-3 py-2 font-mono text-[11px] leading-tight text-emerald-300"
-          />
-          <button
-            type="button"
-            onClick={devSkip}
-            className="absolute top-4 right-4 z-50 rounded-lg bg-black/50 px-2.5 py-1 text-[11px] font-medium text-white/80 hover:bg-black/70"
-          >
-            Omitir (dev)
-          </button>
-        </>
+        <button
+          type="button"
+          onClick={devSkip}
+          className="absolute top-4 right-4 z-50 rounded-lg bg-black/50 px-2.5 py-1 text-[11px] font-medium text-white/80 hover:bg-black/70"
+        >
+          Omitir (dev)
+        </button>
       )}
 
       {phase === 'practice_feedback' && feedback && (
@@ -455,49 +541,19 @@ export default function Cpt() {
           title={feedback.pass ? '¡Bien hecho!' : 'Casi listo'}
           body={
             feedback.pass
-              ? `Detectaste el ${feedback.hitPct}% de las «${p.targetLetter}» sin equivocarte con las demás. Ahora empieza la prueba real.`
+              ? `Detectaste el ${feedback.hitPct}% de las «${X}». Ahora empieza la prueba real.`
               : `${
-                  feedback.reason === 'high_fa'
-                    ? `Respondiste a demasiadas letras que no eran «${p.targetLetter}» (${feedback.faPct}%). Responde solo cuando aparezca la ${p.targetLetter}.`
-                    : `Solo detectaste el ${feedback.hitPct}% de las «${p.targetLetter}». Responde en cuanto veas la ${p.targetLetter}.`
-                } ${attempts.current < 2 ? 'Practica una vez más o continúa.' : 'Empecemos la prueba real.'}`
+                  feedback.faPct > p.maxFalseAlarmPct
+                    ? `Respondiste a demasiadas letras que no eran «${X}» (${feedback.faPct}%). Responde solo cuando aparezca la ${X}.`
+                    : `Detectaste el ${feedback.hitPct}% de las «${X}». Responde en cuanto veas la ${X}.`
+                } ${feedback.last ? 'Empecemos la prueba real.' : 'Practica una vez más.'}`
           }
           actions={
-            feedback.pass || attempts.current >= 2 ? (
-              <Button onClick={startMain}>Comenzar la prueba</Button>
+            feedback.pass || feedback.last ? (
+              <Button onClick={() => queue('test')}>Comenzar la prueba</Button>
             ) : (
-              <div className="flex w-full flex-col gap-2">
-                <Button onClick={retryPractice}>Practicar de nuevo</Button>
-                <button
-                  type="button"
-                  onClick={startMain}
-                  className="text-sm font-medium text-white/60 hover:text-white"
-                >
-                  Continuar de todos modos
-                </button>
-              </div>
+              <Button onClick={retryPractice}>Practicar de nuevo</Button>
             )
-          }
-        />
-      )}
-
-      {phase === 'interrupted' && (
-        <Overlay
-          title="Prueba detenida"
-          body="Este bloque no cuenta. Puedes reintentarlo desde aquí o continuar sin repetirlo."
-          actions={
-            <div className="flex w-full flex-col gap-2">
-              <Button onClick={redo}>Reintentar</Button>
-              {alreadyDone && (
-                <button
-                  type="button"
-                  onClick={skip}
-                  className="text-sm font-medium text-white/60 hover:text-white"
-                >
-                  Continuar sin repetir
-                </button>
-              )}
-            </div>
           }
         />
       )}

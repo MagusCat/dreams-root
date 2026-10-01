@@ -49,12 +49,12 @@ function formSection(title: string, content: FormStepContent, values: Values, ca
 function cptSection(cpt: CptPayload | null): SummarySection {
   const rows: SummaryRow[] = []
   if (cpt) {
-    const target = cpt.parameters.target_letter
+    const target = cpt.parameters.targetLetter
     const real = cpt.trials.filter((t) => !t.is_practice)
-    const targets = real.filter((t) => t.letter === target)
-    const hits = targets.filter((t) => t.rt_ms != null)
+    const targets = real.filter((t) => t.letter === target && t.classification !== 'not_presented')
+    const hits = targets.filter((t) => t.classification === 'hit')
     const omissions = targets.length - hits.length
-    const commissions = real.filter((t) => t.letter !== target && t.rt_ms != null).length
+    const commissions = real.filter((t) => t.classification === 'commission').length
     const meanRt = hits.length
       ? Math.round(hits.reduce((s, t) => s + (t.rt_ms ?? 0), 0) / hits.length)
       : null

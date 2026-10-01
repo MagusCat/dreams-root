@@ -64,15 +64,26 @@ participant responds only to the target ("X"). Standard metrics: omission errors
 (missed targets), commission errors (responses to non-targets), reaction time and
 its variability, and the vigilance decrement (performance drop over time).
 
-**In this app:** custom X-CPT (`src/lib/cpt/`), run in fullscreen on a
-vanilla-JS engine (no React render per frame). A seeded RNG (`mulberry32`) makes
-the letter sequence reproducible; ISI is jittered so the rhythm can't be
-anticipated; each trial records planned vs actual onset (timing **drift**).
-Practice block with a pass threshold precedes the real blocks. Tab-switches and
-fullscreen exits are counted, and a block whose focus is lost is discarded and
-repeated. Parameters are tunable in `flow.json` (`cpt.params`). Trial-level
-metrics (d′, omissions, commissions, RT/CV, decrement) are computed later in
-Python from `cpt_trial`.
+**In this app:** custom X-CPT v1.2 (`src/lib/cpt/`), driven by a DOM-only engine
+(no React render during the test) on an absolute calendar: trial `i` starts at
+`t0 + i × (exposureMs + blankMs)` and is checked every `rAF` frame, so lateness
+never accumulates. A random per-session seed (`crypto.getRandomValues`, stored in
+`cpt_session.parameters.seed`) feeds `mulberry32`; each block has exactly
+`targetsPerBlock` X at shuffled positions (Fisher-Yates), non-targets are A–Z
+minus X with replacement. Practice (`practiceBlocks`, up to
+`maxPracticeAttempts`, with feedback) precedes the test; the input used for the
+first practice response is locked for the test. Each trial stores planned vs
+actual onset and offset, its classification (hit / omission / commission /
+correct_rejection / anticipation / late / not_presented) and every raw response
+time, so it can be re-scored with another window. Interruptions (hidden tab,
+blur, fullscreen exit, orientation change) don't stop the test: it resumes on
+schedule and missed trials are `not_presented`. A reload mid-test costs one of
+`maxTestAttempts`; after the last one the session is saved empty with the
+`session_reloaded` flag. Practice blocks are numbered consecutively across
+attempts (attempt = `block div practiceBlocks`). Quality: frame-interval median,
+% of frames over 2× median, and flags. Parameters live in `flow.json`
+(`cpt.params`) and are validated at load. d′, RT/CV and the vigilance decrement
+are computed later in Python from `cpt_trial`.
 
 **Validity:** the CPT paradigm is a standard, well-validated measure of sustained
 attention. This *specific* implementation is custom and unnormed, so treat it as a

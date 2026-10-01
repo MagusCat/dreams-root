@@ -94,6 +94,43 @@ const scaleStep = z.object({
 })
 export type ScaleStepContent = z.infer<typeof scaleStep>
 
+const posInt = z.number().int().positive()
+
+// A bad timing config must stop the app at load, not surface mid-test.
+export const cptParamsSchema = z
+  .object({
+    version: z.string(),
+    seedMode: z.literal('random'),
+    targetLetter: z.string().regex(/^[A-Z]$/),
+    targetsPerBlock: posInt,
+    trialsPerBlock: posInt,
+    nBlocks: posInt,
+    practiceBlocks: posInt,
+    exposureMs: posInt,
+    blankMs: posInt,
+    windowMs: posInt,
+    jitterMs: z.number().int().nonnegative(),
+    anticipationMs: posInt,
+    passPct: z.number().min(0).max(100),
+    maxFalseAlarmPct: z.number().min(0).max(100),
+    maxPracticeAttempts: posInt,
+    maxTestAttempts: posInt,
+    allowedInputs: z.array(z.enum(['keyboard', 'touch'])).min(1),
+    responseKey: z.string().min(1),
+    letterSizeVmin: z.number().positive(),
+    tryFullscreen: z.boolean(),
+    maxInterruptions: z.number().int().nonnegative(),
+  })
+  .superRefine((p, ctx) => {
+    const fail = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message })
+    // Each onset moves up to ±jitter, so two neighbours can close in by 2×jitter.
+    if (p.windowMs >= p.exposureMs + p.blankMs - 2 * p.jitterMs)
+      fail('windowMs', 'windowMs must end before the next stimulus (exposureMs + blankMs − 2·jitterMs)')
+    if (p.targetsPerBlock >= p.trialsPerBlock) fail('targetsPerBlock', 'targetsPerBlock must be < trialsPerBlock')
+    if (p.anticipationMs >= p.windowMs) fail('anticipationMs', 'anticipationMs must be < windowMs')
+  })
+export type CptParams = z.infer<typeof cptParamsSchema>
+
 export const flowSchema = z.object({
   welcome: z.object({
     title: z.string(),
@@ -124,21 +161,7 @@ export const flowSchema = z.object({
     doneTitle: z.string(),
     doneText: z.string(),
     doneCta: z.string(),
-    params: z.object({
-      version: z.string(),
-      seed: z.number().int(),
-      targetLetter: z.string().length(1),
-      targetRatio: z.number().min(0).max(1),
-      exposureMs: z.number().int().positive(),
-      isiMs: z.number().int().positive(),
-      windowMs: z.number().int().positive(),
-      nBlocks: z.number().int().positive(),
-      trialsPerBlock: z.number().int().positive(),
-      practiceTrials: z.number().int().positive(),
-      passPct: z.number().min(0).max(100),
-      maxFalseAlarmPct: z.number().min(0).max(100),
-      jitterMs: z.number().min(0),
-    }),
+    params: cptParamsSchema,
   }),
   alreadyDone: z.object({ title: z.string(), text: z.string() }),
   recall: z.object({ title: z.string(), intro: z.string(), cta: z.string() }),
