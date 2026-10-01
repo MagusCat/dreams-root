@@ -69,7 +69,7 @@ export default function App() {
           'linear-gradient(160deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bot) 100%)',
       }}
     >
-      <Background level={level} />
+      <Background level={level} paused={step === 'cpt'} />
       <div
         key={loading ? 'loading' : step}
         className={`${anim} flex w-full max-w-xl justify-center lg:max-w-2xl`}

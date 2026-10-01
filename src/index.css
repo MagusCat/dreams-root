@@ -11,7 +11,7 @@
 /* Background animations (stars, nebulae, clouds) */
 @keyframes twinkle {
   0%, 100% { opacity: 0.2; transform: scale(0.9); }
-  50%      { opacity: 0.95; transform: scale(1.15); filter: drop-shadow(0 0 3px #fff); }
+  50%      { opacity: 0.95; transform: scale(1.15); }
 }
 
 @keyframes nebula-pulse {
@@ -38,9 +38,9 @@
 
 /* Screen-to-screen enter transition (fade + scale + slide) */
 @keyframes enter {
-  0%   { opacity: 0; transform: translateY(20px) scale(0.965); filter: blur(3px); }
-  60%  { opacity: 1; filter: blur(0); }
-  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  0%   { opacity: 0; transform: translateY(20px) scale(0.965); }
+  60%  { opacity: 1; }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .animate-enter { animation: enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
@@ -155,6 +155,9 @@
   opacity: 0;
   animation: shoot 9s cubic-bezier(0.4, 0, 0.2, 1) 1.5s infinite;
 }
+
+/* Freeze the sky during the CPT so it doesn't compete for frames with stimulus timing. */
+.sky-paused * { animation-play-state: paused !important; }
 
 /* Soft custom scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
