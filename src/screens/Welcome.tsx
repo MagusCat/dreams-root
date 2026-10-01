@@ -57,6 +57,8 @@ export default function Welcome() {
         {c.image && showImg && (
           <img
             src={c.image}
+            width={160}
+            height={160}
             alt=""
             onError={() => setShowImg(false)}
             className="h-40 w-full rounded-2xl object-contain"

@@ -13,7 +13,10 @@ export default function Finished({ note }: { note?: string }) {
     <div className="animate-enter flex flex-col items-center justify-center gap-6 px-6 text-center">
       {mark === 'cat' ? (
         <img
-          src="/cat.png"
+          src="/cat.webp"
+          width={176}
+          height={176}
+          decoding="async"
           alt="Gatito feliz"
           onError={() => setMark('check')}
           className="animate-cat h-44 w-44 object-contain drop-shadow-[0_8px_24px_rgba(0,0,0,0.4)]"
