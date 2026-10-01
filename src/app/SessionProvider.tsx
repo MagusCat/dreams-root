@@ -23,7 +23,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setStep('already_done')
     } else {
       const saved = getStepLocal()
-      if (saved && (FORM_STEPS as readonly string[]).includes(saved)) {
+      // 'closing' = the final save failed or was interrupted: resume straight into it.
+      if (saved && (saved === 'closing' || (FORM_STEPS as readonly string[]).includes(saved))) {
         setResumeStep(saved as Step)
       }
     }
