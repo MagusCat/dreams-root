@@ -43,6 +43,9 @@ export default function LikertScale({
           step={1}
           value={current}
           onChange={(e) => onChange(Number(e.target.value))}
+          // Tapping the untouched thumb (already on the midpoint) fires no change event.
+          onPointerUp={(e) => !answered && onChange(Number(e.currentTarget.value))}
+          onKeyUp={(e) => !answered && (e.key === 'Enter' || e.key === ' ') && onChange(Number(e.currentTarget.value))}
           aria-label={text}
           aria-valuetext={currentLabel}
           className={`dreams-range w-full ${answered ? '' : 'dreams-range--empty'}`}
