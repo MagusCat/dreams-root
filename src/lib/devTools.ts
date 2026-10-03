@@ -61,7 +61,6 @@ export function markCptDoneIfMissing(): void {
   }
 }
 
-// Valid sample answer per field (first option / mid-range / first catalog row).
 async function sampleValue(f: Field): Promise<unknown> {
   switch (f.type) {
     case 'number': {
@@ -82,7 +81,6 @@ async function sampleValue(f: Field): Promise<unknown> {
   }
 }
 
-// Fills every questionnaire draft with valid answers, then jumps to `to`.
 async function templateAnswer(to: Step = 'cpt'): Promise<void> {
   if (!STEPS.includes(to)) throw new Error(`Unknown step "${to}". Use one of: ${STEPS.join(', ')}`)
   const q = flow.questionnaires

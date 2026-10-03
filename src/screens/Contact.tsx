@@ -19,7 +19,6 @@ export default function Contact() {
   const wants = form.wants_results === true
   const email = form.email ?? ''
   const emailValid = EMAIL_RE.test(email.trim())
-  // Opted in → require a valid email; otherwise they can finish freely.
   const canFinish = !wants || emailValid
 
   return (

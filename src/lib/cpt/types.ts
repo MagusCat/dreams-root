@@ -2,7 +2,6 @@ import type { CptParams } from '../../content/schema'
 
 export type { CptParams }
 
-// 'keyboard' or the PointerEvent.pointerType of a tap/click.
 export type InputKind = 'keyboard' | 'touch' | 'mouse' | 'pen'
 
 export type Classification =

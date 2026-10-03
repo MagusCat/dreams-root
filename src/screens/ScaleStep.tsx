@@ -14,7 +14,6 @@ export default function ScaleStep({ which }: { which: 'maas' | 'pps' }) {
   const next = nextStep(which)
   const [phase, setPhase] = useState<'intro' | 'items'>('intro')
   // Draft key includes item count so a content change discards a stale draft.
-  // Answers stay local until the final batch save.
   const [answers, setAnswers] = useLocalState<(number | null)[]>(
     `dreams:draft:${which}:${content.items.length}`,
     () => content.items.map(() => null),
