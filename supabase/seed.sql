@@ -5,7 +5,8 @@ insert into knowledge_area (id_area, name) values
   (4, 'Ciencias Económicas y Administrativas'),
   (5, 'Ciencias Exactas y Naturales'),
   (6, 'Ciencias Agropecuarias y Ambientales'),
-  (7, 'Arte y Diseño')
+  (7, 'Arte y Diseño'),
+  (8, 'Otra')
 on conflict do nothing;
 
 insert into major (id_major, fk_area, name) values
@@ -32,7 +33,8 @@ insert into major (id_major, fk_area, name) values
   (21, 6, 'Medicina Veterinaria'),
   (22, 1, 'Psicología'),
   (23, 3, 'Trabajo Social'),
-  (24, 4, 'Turismo Sostenible')
+  (24, 4, 'Turismo Sostenible'),
+  (25, 8, 'Otra')
 on conflict do nothing;
 
 insert into university_center (id_center, name) values
