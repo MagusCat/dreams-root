@@ -2,6 +2,7 @@ import { supabase } from './supabase/client'
 import { readOrigin } from './fingerprint'
 import { getFingerprintLocal, type LocalAnswers } from './localStore'
 import type { CptPayload } from './cpt/types'
+import { VARIANT, OTHER_CENTER_ID } from '../content'
 
 type Values = Record<string, unknown>
 
@@ -109,7 +110,8 @@ export async function startParticipant(): Promise<string> {
     screen_width: window.screen.width,
     screen_height: window.screen.height,
     browser: navigator.userAgent,
-    origin: readOrigin(),
+    // Variant B is tagged in origin (no extra column): "b" or "b:<origin>".
+    origin: VARIANT === 'b' ? ['b', readOrigin()].filter(Boolean).join(':').slice(0, 64) : readOrigin(),
     device_fingerprint: getFingerprintLocal(),
   })
   if (error) throw error
@@ -148,7 +150,7 @@ export async function finalizeSubmission(answers: LocalAnswers): Promise<void> {
 
   if (answers.cpt) await saveCpt(uid, answers.cpt)
   const { fk_physical_activity, ...academic } = answers.intake
-  await saveAcademic(uid, academic)
+  await saveAcademic(uid, VARIANT === 'b' ? { ...academic, fk_center: OTHER_CENTER_ID } : academic)
   await saveScale(uid, 'MAAS', answers.maas)
   await saveScale(uid, 'PPS', answers.pps)
   await saveHabits(uid, { fk_physical_activity, ...answers.digital, ...answers.ai })

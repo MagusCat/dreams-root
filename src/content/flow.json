@@ -134,7 +134,8 @@
 					"type": "catalog",
 					"key": "fk_major",
 					"catalog": "major",
-					"label": "Carrera"
+					"label": "Carrera",
+					"exclude": ["Otra"]
 				},
 				{
 					"type": "catalog",

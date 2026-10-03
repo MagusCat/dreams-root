@@ -181,7 +181,8 @@ function ChoiceControl({
 }
 
 function CatalogControl({ def, value, onChange }: { def: CatalogFieldDef } & Omit<FieldProps, 'def'>) {
-  const { items, loading, error } = useCatalog(def.catalog)
+  const { items: all, loading, error } = useCatalog(def.catalog)
+  const items = def.exclude ? all.filter((it) => !def.exclude!.includes(it.name)) : all
 
   if (loading) {
     return (

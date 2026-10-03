@@ -52,6 +52,8 @@ const catalogField = z.object({
   ...common,
   catalog: z.enum(CATALOG_NAMES),
   multiple: z.boolean().optional(),
+  // Catalog names hidden from the options (e.g. "Otra" only in variant B).
+  exclude: z.array(z.string()).optional(),
 })
 
 const conditionalField = z.object({
